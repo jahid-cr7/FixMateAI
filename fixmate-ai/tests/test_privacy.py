@@ -36,3 +36,10 @@ def test_redacts_ipv4_ipv6_and_mac_addresses() -> None:
     assert "203.0.113.10" not in redacted
     assert "2001:db8:85a3::8a2e:370:7334" not in redacted
     assert "AA:BB:CC:DD:EE:FF" not in redacted
+
+
+def test_redacts_explicit_username_assignments() -> None:
+    """Questions sent to an optional provider must hide explicit usernames."""
+    redacted = redact_sensitive_text("username=Alice account is bob")
+    assert "Alice" not in redacted
+    assert "bob" not in redacted

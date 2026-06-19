@@ -11,6 +11,10 @@ SECRET_ASSIGNMENT_PATTERN = re.compile(
     r"\s*[:=]\s*([^\s,;]+)",
     re.IGNORECASE,
 )
+USERNAME_ASSIGNMENT_PATTERN = re.compile(
+    r"\b(username|user[ _-]?name|account)\s*(?::|=|\bis\b)\s*([^\s,;]+)",
+    re.IGNORECASE,
+)
 BEARER_PATTERN = re.compile(r"\bBearer\s+[A-Za-z0-9._~+/-]+=*", re.IGNORECASE)
 WINDOWS_USER_PATH_PATTERN = re.compile(
     r"\b[A-Za-z]:\\Users\\[^\\\s]+(?:\\[^\s]*)?",
@@ -46,6 +50,10 @@ def redact_sensitive_text(text: str) -> str:
     """Redact likely credentials, email addresses, and user-specific paths."""
     redacted = BEARER_PATTERN.sub("Bearer [REDACTED]", text)
     redacted = SECRET_ASSIGNMENT_PATTERN.sub(
+        lambda match: f"{match.group(1)}=[REDACTED]",
+        redacted,
+    )
+    redacted = USERNAME_ASSIGNMENT_PATTERN.sub(
         lambda match: f"{match.group(1)}=[REDACTED]",
         redacted,
     )

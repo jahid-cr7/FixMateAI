@@ -19,7 +19,7 @@ FixMate AI is a read-only, cross-platform IT support dashboard for Windows and U
 
 FixMate AI never requires administrator/root access, executes repairs, scans ports, captures packets, runs screenshot text, or stores uploaded screenshot files.
 
-Phase 4 does **not** use a generative AI model or external LLM. It uses explicit intent rules and read-only tools, and it cannot answer beyond the data FixMate AI has collected.
+Deterministic mode remains the default source of truth. Phase 5 can optionally add a labeled LLM explanation, but the application works normally without an API key, internet, Ollama, or any model.
 
 ## Requirements
 
@@ -121,7 +121,60 @@ Open **Troubleshooting Assistant** from Streamlit's page navigation. It supports
 
 Each answer provides a direct conclusion, the evidence used, its relevant timestamp and freshness, severity where applicable, and explicitly labeled guidance. When data is missing, stale, or conflicting, the assistant says so instead of inventing a cause.
 
-Questions and conversation history are held only in Streamlit session state. They are not stored in SQLite and are not sent to an external service. Use **Clear conversation** to remove the current session's messages.
+Questions and conversation history are held only in Streamlit session state and are not stored in SQLite. Deterministic mode sends nothing externally; cloud AI mode may send the current redacted question and minimized evidence only after explicit consent. Use **Clear conversation** to remove the current session's messages.
+
+## Optional AI-enhanced mode
+
+The Troubleshooting Assistant offers two modes:
+
+- **Deterministic** — default, fully local, and based only on explicit Phase 4 routing.
+- **AI-enhanced (optional)** — keeps the deterministic answer authoritative and adds a labeled plain-language explanation from a configured provider.
+
+The optional model can request only nine approved read-only tools. It cannot access arbitrary SQL, files, the shell, processes, operating-system settings, network scanning, or repairs. It cannot replace the deterministic direct answer, evidence, timestamps, severity, freshness, or recommendations.
+
+Provider output is rejected and replaced with the deterministic answer when it is malformed, ungrounded, unsafe, excessive, stale-obscuring, or unavailable.
+
+### Configuration
+
+FixMate AI reads configuration from environment variables. It does not automatically load `.env` files. See `.env.example` for safe placeholders.
+
+The default requires no configuration:
+
+```powershell
+$env:FIXMATE_LLM_PROVIDER="disabled"
+```
+
+Optional HTTPS cloud provider using a chat-completions-compatible endpoint:
+
+```powershell
+$env:FIXMATE_LLM_PROVIDER="cloud"
+$env:FIXMATE_CLOUD_API_URL="https://your-provider.example/v1/chat/completions"
+$env:FIXMATE_CLOUD_MODEL="your-model-name"
+$env:FIXMATE_CLOUD_API_KEY = Read-Host "Enter the provider API key for this shell session"
+$env:FIXMATE_LLM_TIMEOUT_SECONDS="15"
+streamlit run app.py
+```
+
+Cloud mode requires checking the external-data consent box before any question or minimized evidence is sent.
+
+Optional loopback-only Ollama-compatible provider:
+
+```powershell
+$env:FIXMATE_LLM_PROVIDER="ollama"
+$env:FIXMATE_OLLAMA_URL="http://127.0.0.1:11434/api/chat"
+$env:FIXMATE_OLLAMA_MODEL="your-installed-local-model"
+streamlit run app.py
+```
+
+The Ollama-compatible URL must use `localhost`, `127.0.0.1`, or `::1`. Installing, downloading, and running a local model is separate from FixMate AI.
+
+On Ubuntu, use equivalent `export FIXMATE_...="value"` commands before starting Streamlit.
+
+### External privacy and cost
+
+With explicit cloud consent, FixMate AI may send the redacted question, deterministic answer fields, timestamps, metrics, severity, and minimized approved-tool results. It excludes screenshots, OCR text, API keys, usernames identified by redaction, process names in tool output, complete IP/MAC addresses, and sensitive paths.
+
+Redaction is best-effort. Review questions before using a cloud provider. Cloud providers may retain requests or charge per token according to their own policies; FixMate AI cannot control those policies or costs. Local Ollama-compatible inference avoids cloud transmission but uses local CPU, memory, disk, and power.
 
 ## Tests
 
@@ -136,6 +189,8 @@ Tests generate images in memory and mock OCR and network operations. They requir
 History is stored locally in `data/fixmate.db`, which is ignored by Git. Screenshot files and image bytes are never written to the database or filesystem.
 
 The troubleshooting assistant opens SQLite in read-only mode and creates no conversation table. Evidence is redacted again before display, including likely IP addresses, MAC addresses, email addresses, credentials, usernames contained in paths, and sensitive paths.
+
+Optional providers never receive database handles or direct access to SQLite. A bounded agent executes at most four validated tool requests and two provider calls per question. Screenshot files and OCR text are never included in provider payloads.
 
 Before OCR text is stored, FixMate AI redacts likely:
 
@@ -161,6 +216,10 @@ If the analyzer reports that Tesseract is unavailable:
 - `pages/3_Troubleshooting_Assistant.py` — Phase 4 deterministic chat page
 - `src/assistant_tools.py` — read-only evidence tools
 - `src/troubleshooting_assistant.py` — intent routing and answer generation
+- `src/safe_agent_tools.py` — strict minimized read-only provider tool allowlist
+- `src/hybrid_agent.py` — bounded explanation orchestration and deterministic fallback
+- `src/llm/` — isolated disabled, cloud, and loopback Ollama providers
+- `.env.example` — credential-free optional configuration template
 - `src/image_processing.py` — validation and OpenCV preprocessing
 - `src/ocr.py` — optional local Tesseract integration
 - `src/error_matcher.py` — deterministic confidence-ranked matching
@@ -181,3 +240,7 @@ If the analyzer reports that Tesseract is unavailable:
 - Recommendations are guidance rather than guaranteed fixes.
 - The assistant cannot infer events that were not captured in a scan or diagnostic.
 - Freshness labels do not make old evidence current; run new diagnostics when conditions change.
+- Optional model explanations can be inaccurate and are always secondary to deterministic evidence.
+- Cloud configuration and pricing depend on the selected compatible provider.
+- Local models require separate installation and may be slow on modest hardware.
+- FixMate AI is not autonomous and never claims to have repaired the computer.

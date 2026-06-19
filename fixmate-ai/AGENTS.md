@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-FixMate AI is a beginner-friendly, portfolio-quality system health, network diagnostic, local screenshot-analysis, and deterministic troubleshooting application for Windows and Ubuntu. Keep every feature read-only and safe by default.
+FixMate AI is a beginner-friendly, portfolio-quality system health, network diagnostic, screenshot-analysis, and hybrid troubleshooting application for Windows and Ubuntu. Deterministic evidence remains authoritative; keep every feature read-only and safe by default.
 
 ## Commands
 
@@ -38,7 +38,17 @@ python -m streamlit run app.py
 - Keep assistant conversations in Streamlit session state only; do not create a conversation table.
 - Every assistant answer must include direct evidence, a relevant timestamp or explicit unavailability, freshness, severity when applicable, and guidance labeled as non-guaranteed.
 - Deterministic routing must state when evidence is absent, stale, or conflicting.
-- Do not add an external LLM or generative fallback without explicit phase approval.
+- Deterministic assistant behavior is the default and source of truth; optional models may explain but never replace its facts or guidance.
+- Keep provider-specific code isolated under `src/llm/` and load configuration only from environment variables.
+- Never log, display, persist, or commit provider credentials.
+- Require explicit session consent before sending any redacted question or evidence to an external provider.
+- Ollama-compatible providers must be restricted to loopback hosts.
+- Providers must never import or receive database, filesystem, shell, process, settings, scanning, or repair capabilities.
+- Validate provider tool requests against the exact allowlist and reject all provider-supplied arguments.
+- Enforce at most four tool requests and two provider calls per question.
+- Minimize and redact provider payloads; never send screenshots, OCR text, process names from tool output, complete IP/MAC addresses, credentials, usernames, or sensitive paths.
+- Reject malformed, unsafe, numerically ungrounded, or stale-obscuring output and fall back to the deterministic answer.
+- Label all model-produced text as AI-generated content.
 - Never expose full IP addresses, MAC addresses, usernames, credentials, or sensitive paths in assistant evidence.
 - Do not collect browsing history, scan ports, capture packets, expose MAC addresses, terminate processes, execute repairs, or require administrator/root privileges.
 - Do not commit databases, virtual environments, caches, uploads, or local secrets.
@@ -50,4 +60,6 @@ python -m streamlit run app.py
 3. Confirm the application starts when the Tesseract executable is unavailable.
 4. Confirm `data/fixmate.db` remains ignored by Git.
 5. Update `README.md` and the relevant phase plan when behavior changes.
+6. Run provider tests with injected transports only; automated tests must never contact cloud or Ollama endpoints.
+7. Confirm the complete app works with all `FIXMATE_LLM_*` variables absent.
 

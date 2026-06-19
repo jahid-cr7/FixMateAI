@@ -22,3 +22,8 @@ data/*.sqlite3
 .DS_Store
 Thumbs.db
 *.log
+
+# Optional provider credentials and local environment configuration
+.env
+.env.*
+!.env.example
