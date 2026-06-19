@@ -70,11 +70,16 @@ def test_phase_2_migration_preserves_legacy_records(tmp_path: Path) -> None:
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             )
         }
-        assert {"schema_migrations", "network_diagnostics", "network_issues"} <= tables
+        assert {
+            "schema_migrations",
+            "network_diagnostics",
+            "network_issues",
+            "screenshot_analyses",
+        } <= tables
         migrations = connection.execute(
             "SELECT COUNT(*) FROM schema_migrations"
         ).fetchone()[0]
-        assert migrations == 2
+        assert migrations == 3
 
 
 def test_network_diagnostic_round_trip(tmp_path: Path) -> None:

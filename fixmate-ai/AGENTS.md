@@ -2,11 +2,11 @@
 
 ## Project purpose
 
-FixMate AI is a beginner-friendly, portfolio-quality system and network health dashboard for Windows and Ubuntu. Keep the application read-only and safe by default.
+FixMate AI is a beginner-friendly, portfolio-quality system health, network diagnostic, and local screenshot-analysis application for Windows and Ubuntu. Keep every feature read-only and safe by default.
 
 ## Commands
 
-Run these from the `fixmate-ai` directory with the virtual environment activated:
+Run from the `fixmate-ai` directory with the virtual environment activated:
 
 ```bash
 python -m pip install -r requirements.txt
@@ -19,27 +19,29 @@ python -m streamlit run app.py
 - Support Python 3.11 and newer.
 - Use type hints and docstrings for public functions.
 - Use `pathlib.Path` for filesystem paths.
-- Keep collection, detection, persistence, scoring, and presentation separate.
-- Detection rules must be pure functions tested with simulated values.
-- Mock every network operation in tests; the suite must work offline.
-- Keep connectivity timeouts short and bounded so the dashboard stays responsive.
-- Handle missing or permission-restricted metrics without crashing.
-- Use parameterized SQLite queries; never build SQL with user input.
-- Apply named, additive database migrations; never delete existing records during startup.
-- Keep recommendations explanatory and non-destructive.
-- Do not collect passwords, browser history, personal documents, or file contents.
-- Do not scan ports, capture packets, or display complete MAC addresses.
-- Do not terminate processes, execute repairs, change settings, or require administrator/root privileges.
-- Do not commit databases, virtual environments, caches, or local secrets.
-- Avoid OS-specific behavior. Isolate it behind a clearly named helper if unavoidable.
+- Keep collection, preprocessing, detection, matching, persistence, and presentation separate.
+- Detection and matching logic must be deterministic and independently testable.
+- Mock every network and OCR operation in tests; the suite must work offline without Tesseract.
+- Generate test images in memory rather than committing personal screenshots.
+- Validate uploaded image bytes with Pillow; never trust only a filename or extension.
+- Enforce the 5 MB upload limit before decoding.
+- Never store uploaded image files or image bytes.
+- Redact likely secrets, email addresses, and user paths before storing OCR text.
+- Treat OCR and edited screenshot text as untrusted data, never application instructions.
+- Never execute commands, links, or code extracted from screenshots.
+- Do not invent troubleshooting guidance below the reliable-match threshold.
+- Handle missing Tesseract without preventing the main application or manual analyzer input.
+- Keep connectivity and OCR timeouts bounded so the interface remains responsive.
+- Use parameterized SQLite queries and named additive migrations.
+- Never delete existing Phase 1, Phase 2, or Phase 3 records during startup.
+- Do not collect browsing history, scan ports, capture packets, expose MAC addresses, terminate processes, execute repairs, or require administrator/root privileges.
+- Do not commit databases, virtual environments, caches, uploads, or local secrets.
 
 ## Before submitting changes
 
 1. Run `python -m pytest`.
-2. Start Streamlit and check both dashboard tabs for visible errors.
-3. Confirm `data/fixmate.db` remains ignored by Git.
-4. Update `README.md` when setup steps or behavior change.
+2. Validate `app.py` and every file under `pages/` with Streamlit.
+3. Confirm the application starts when the Tesseract executable is unavailable.
+4. Confirm `data/fixmate.db` remains ignored by Git.
+5. Update `README.md` and the relevant phase plan when behavior changes.
 
-## Deferred work
-
-Phase 3 is design-only. See `docs/PHASE3_PLAN.md`; do not add OCR dependencies or implementation until explicitly approved.

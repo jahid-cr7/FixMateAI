@@ -1,23 +1,29 @@
 # FixMate AI
 
-FixMate AI is a read-only, cross-platform IT support dashboard for Windows and Ubuntu. It collects basic system and network metrics, detects common problems, stores local history in SQLite, and displays safe troubleshooting guidance.
+FixMate AI is a read-only, cross-platform IT support dashboard for Windows and Ubuntu. It combines system health checks, network diagnostics, and a local error-screenshot analyzer with safe, evidence-based guidance.
 
 ## Features
 
 - CPU, memory, disk, operating-system, boot-time, and top-process metrics
-- Detection for CPU usage above 90%, memory usage above 85%, and disk free space below 10%
-- Active network interfaces and cumulative sent/received byte counters
-- Configurable internet connectivity, timeout, and latency checks
-- Severity, evidence, explanations, and safe recommendations for network issues
-- SQLite history and interactive Plotly charts
-- Deterministic tests using simulated system values and mocked network operations
+- Threshold-based system issue detection and health scoring
+- Active network interfaces, traffic counters, connectivity, and latency diagnostics
+- SQLite history with additive, non-destructive migrations
+- Local PNG/JPG/JPEG screenshot analysis up to 5 MB
+- OpenCV grayscale, contrast, denoising, and optional threshold preprocessing
+- Local Tesseract OCR with editable extracted text
+- Deterministic matching against 15 curated Windows and Ubuntu problems
+- Confidence scores, matching evidence, and safe troubleshooting steps
+- Privacy redaction before OCR text is stored
 
-FixMate AI never requires administrator/root access, reads no file contents, captures no packets, scans no ports, and performs no repair actions.
+FixMate AI never requires administrator/root access, executes repairs, scans ports, captures packets, runs screenshot text, or stores uploaded screenshot files.
 
 ## Requirements
 
 - Python 3.11 or newer
 - Windows 10/11 or a current Ubuntu release
+- Tesseract OCR is optional but required for automatic text extraction
+
+The main system-health and network dashboard works normally without Tesseract. The analyzer still permits manual error-text entry when OCR is unavailable.
 
 ## Windows setup
 
@@ -31,26 +37,40 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-If PowerShell blocks activation, run the environment's Python directly:
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m streamlit run app.py
-```
-
-If your prompt is at `D:\FixMateAI` instead of the project directory, first run:
+If your prompt is at `D:\FixMateAI`, first run:
 
 ```powershell
 cd .\fixmate-ai
 ```
 
-## Ubuntu setup
+### Windows Tesseract installation
 
-Open a terminal in the `fixmate-ai` directory:
+1. Install a trusted current Windows build of Tesseract OCR.
+2. During installation, note the executable path. A common location is:
+
+   ```text
+   C:\Program Files\Tesseract-OCR\tesseract.exe
+   ```
+
+3. Add the Tesseract directory to `PATH`, or set the explicit command location:
+
+   ```powershell
+   setx TESSERACT_CMD "C:\Program Files\Tesseract-OCR\tesseract.exe"
+   ```
+
+4. Open a new PowerShell window and verify:
+
+   ```powershell
+   tesseract --version
+   ```
+
+`TESSERACT_CMD` is useful when Tesseract is installed but intentionally not added to the global `PATH`.
+
+## Ubuntu setup
 
 ```bash
 sudo apt update
-sudo apt install python3.11 python3.11-venv
+sudo apt install python3.11 python3.11-venv tesseract-ocr
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -58,20 +78,28 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-The `sudo` commands install Python only; running FixMate AI itself does not require root privileges.
+Verify OCR installation with:
+
+```bash
+tesseract --version
+```
+
+The `sudo` commands install system packages only; running FixMate AI does not require root privileges.
+
+## Using the Error Screenshot Analyzer
+
+1. Open **Error Screenshot Analyzer** from Streamlit's page navigation.
+2. Review the privacy warning and upload a PNG, JPG, or JPEG no larger than 5 MB.
+3. Compare the original and processed previews. Disable thresholding if colored text becomes less readable.
+4. Select **Extract text with local OCR**, or type the message manually if Tesseract is unavailable.
+5. Correct OCR mistakes in the editable text box.
+6. Select **Analyze error text** to view ranked reliable matches.
+
+If no result reaches the 60% confidence threshold, the page displays **No reliable match found** and does not invent a solution.
 
 ## Network diagnostics
 
-Open the **Network Diagnostics** tab and configure:
-
-- Connectivity host (default: `1.1.1.1`)
-- TCP port (default: `443`)
-- Short timeout from 0.1 to 5 seconds
-- High-latency threshold in milliseconds
-
-Select **Run new diagnostic** to store a result. The dashboard shows connection and internet status, latency, active interface names, cumulative sent/received byte counters, detected issues, and historical Plotly charts.
-
-The diagnostic performs one TCP connection to the configured host and port. It is not a port scan and does not execute `ping`, repair commands, or operating-system-specific network commands. A failed result proves only that this particular test could not connect; captive portals, firewalls, VPNs, or a blocked target may also affect it.
+Open the **Network Diagnostics** tab to configure a host, TCP port, short timeout, and high-latency threshold. The test performs one TCP connection; it is not a port scan. Traffic counters are cumulative operating-system counters.
 
 ## Tests
 
@@ -79,28 +107,47 @@ The diagnostic performs one TCP connection to the configured host and port. It i
 python -m pytest
 ```
 
-All network operations are mocked in automated tests, so tests do not require internet access.
+Tests generate images in memory and mock OCR and network operations. They require neither Tesseract nor internet access.
 
 ## Data and privacy
 
-History is saved locally to `data/fixmate.db`, which is ignored by Git. Collected data is limited to performance percentages, operating-system details, boot time, process names/PIDs/memory usage, interface names, connectivity results, latency, and byte counters.
+History is stored locally in `data/fixmate.db`, which is ignored by Git. Screenshot files and image bytes are never written to the database or filesystem.
 
-Complete MAC addresses, passwords, browsing history, packet contents, personal documents, and file contents are never collected. Database migrations are additive and preserve existing system-health records.
+Before OCR text is stored, FixMate AI redacts likely:
+
+- Passwords, API keys, tokens, and bearer values
+- Email addresses
+- Windows and Linux user-specific paths
+
+Redaction is best-effort and cannot guarantee that every personal detail will be recognized. Crop or redact screenshots before upload and avoid screenshots containing secrets. Processing is local, but the editable text remains visible in the current Streamlit session.
+
+## Missing OCR troubleshooting
+
+If the analyzer reports that Tesseract is unavailable:
+
+1. Confirm `tesseract --version` works in a new terminal.
+2. Restart Streamlit after installing Tesseract or changing `PATH`.
+3. On Windows, set `TESSERACT_CMD` to the complete executable path.
+4. Continue by entering the error message manually; the rest of the analyzer does not depend on Tesseract.
 
 ## Project structure
 
-- `app.py` — Streamlit user interface
-- `src/collector.py` — safe system metric collection
-- `src/detector.py` — pure system threshold rules
-- `src/network_collector.py` — interface, traffic, connectivity, and latency collection
-- `src/network_detector.py` — pure network issue rules
-- `src/database.py` — SQLite migrations and persistence
-- `src/health_score.py` — transparent score calculation
-- `src/recommendations.py` — safe guidance text
-- `tests/` — simulated and mocked automated tests
-- `docs/PHASE3_PLAN.md` — saved design only; Phase 3 is not implemented
+- `app.py` — Phase 1 and Phase 2 Streamlit dashboard
+- `pages/2_Error_Screenshot_Analyzer.py` — Phase 3 analyzer page
+- `src/image_processing.py` — validation and OpenCV preprocessing
+- `src/ocr.py` — optional local Tesseract integration
+- `src/error_matcher.py` — deterministic confidence-ranked matching
+- `src/knowledge_base.py` — trusted JSON loader
+- `src/privacy.py` — anonymization and redaction
+- `data/error_knowledge_base.json` — curated local troubleshooting entries
+- `src/database.py` — additive migrations and persistence for all phases
+- `tests/` — simulated, generated, and mocked automated tests
 
 ## Current limitations
 
-Diagnostics run only when requested, and connectivity is inferred from one configured TCP target. Byte counters are cumulative since operating-system startup, not per-application traffic. The project does not include authentication, OCR, an API, an external LLM, Docker, background monitoring, notifications, or automatic repairs.
+- OCR accuracy depends on screenshot resolution, font, contrast, language, and Tesseract quality.
+- The knowledge base covers common errors but is not a general diagnostic engine.
+- Confidence is deterministic heuristic evidence, not a statistical probability.
+- Redaction is best-effort; users should remove sensitive information before uploading.
+- Connectivity represents one configured TCP target, and network byte counters are cumulative.
 

@@ -11,6 +11,7 @@ from typing import Any
 DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "fixmate.db"
 PHASE_1_MIGRATION = "phase1_system_health"
 PHASE_2_MIGRATION = "phase2_network_diagnostics"
+PHASE_3_MIGRATION = "phase3_screenshot_analyzer"
 
 
 def connect(database_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
@@ -79,6 +80,13 @@ def initialize_database(database_path: Path = DEFAULT_DB_PATH) -> None:
         if migration_applied is None:
             _apply_phase_2_migration(connection)
 
+        phase_3_applied = connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE migration_id = ?",
+            (PHASE_3_MIGRATION,),
+        ).fetchone()
+        if phase_3_applied is None:
+            _apply_phase_3_migration(connection)
+
 
 def _apply_phase_2_migration(connection: sqlite3.Connection) -> None:
     """Add network tables without modifying or deleting Phase 1 records."""
@@ -132,6 +140,34 @@ def _apply_phase_2_migration(connection: sqlite3.Connection) -> None:
     connection.execute(
         "INSERT INTO schema_migrations (migration_id) VALUES (?)",
         (PHASE_2_MIGRATION,),
+    )
+
+
+def _apply_phase_3_migration(connection: sqlite3.Connection) -> None:
+    """Add screenshot-analysis history without altering prior phase records."""
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS screenshot_analyses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            analyzed_at TEXT NOT NULL,
+            anonymized_filename TEXT NOT NULL,
+            extracted_text_redacted TEXT NOT NULL,
+            matched_issue_id TEXT,
+            confidence_score REAL,
+            CHECK (confidence_score IS NULL OR
+                   (confidence_score >= 0 AND confidence_score <= 100))
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_screenshot_analyses_analyzed_at
+        ON screenshot_analyses(analyzed_at)
+        """
+    )
+    connection.execute(
+        "INSERT INTO schema_migrations (migration_id) VALUES (?)",
+        (PHASE_3_MIGRATION,),
     )
 
 
@@ -278,3 +314,51 @@ def get_network_history(
         item["timed_out"] = bool(item["timed_out"])
         history.append(item)
     return history
+
+
+def save_screenshot_analysis(
+    analyzed_at: str,
+    anonymized_filename: str,
+    extracted_text_redacted: str,
+    matched_issue_id: str | None,
+    confidence_score: float | None,
+    database_path: Path = DEFAULT_DB_PATH,
+) -> int:
+    """Store redacted analysis metadata without storing uploaded image data."""
+    initialize_database(database_path)
+    with connect(database_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO screenshot_analyses (
+                analyzed_at, anonymized_filename, extracted_text_redacted,
+                matched_issue_id, confidence_score
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                analyzed_at,
+                anonymized_filename,
+                extracted_text_redacted,
+                matched_issue_id,
+                confidence_score,
+            ),
+        )
+    return int(cursor.lastrowid)
+
+
+def get_screenshot_analysis_history(
+    limit: int = 50,
+    database_path: Path = DEFAULT_DB_PATH,
+) -> list[dict[str, Any]]:
+    """Return recent screenshot analyses without any image content."""
+    initialize_database(database_path)
+    with connect(database_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT analyzed_at, anonymized_filename, extracted_text_redacted,
+                   matched_issue_id, confidence_score
+            FROM screenshot_analyses
+            ORDER BY id DESC LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [dict(row) for row in rows]

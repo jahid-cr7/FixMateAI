@@ -1,0 +1,152 @@
+[
+  {
+    "id": "access_denied_windows",
+    "patterns": ["access denied", "error 5", "0x80070005"],
+    "operating_system": "Windows",
+    "title": "Access denied",
+    "likely_causes": ["The account lacks permission for the requested resource.", "A file is locked or protected by security policy."],
+    "troubleshooting_steps": ["Confirm that you selected the intended file or setting.", "Close applications that may be using the file and retry.", "Ask the system owner for the minimum required permission instead of disabling security controls."],
+    "severity": "medium",
+    "documentation_notes": "Do not bypass access controls or run unknown programs as administrator."
+  },
+  {
+    "id": "file_not_found",
+    "patterns": ["file not found", "no such file or directory", "errno 2", "the system cannot find the file specified"],
+    "operating_system": "Windows and Ubuntu",
+    "title": "File not found",
+    "likely_causes": ["The path is misspelled or points to a moved file.", "The current working directory is different from the expected directory."],
+    "troubleshooting_steps": ["Check the filename and path carefully.", "Confirm the file exists using the graphical file manager.", "Use an absolute path when the application expects one."],
+    "severity": "medium",
+    "documentation_notes": "Avoid creating replacement system files from untrusted downloads."
+  },
+  {
+    "id": "connection_timed_out",
+    "patterns": ["connection timed out", "operation timed out", "etimedout", "timeout expired"],
+    "operating_system": "Windows and Ubuntu",
+    "title": "Connection timed out",
+    "likely_causes": ["The remote service is slow or unavailable.", "A firewall, VPN, or unstable network interrupted the connection."],
+    "troubleshooting_steps": ["Retry once after checking your network status.", "Check the service's official status page from a trusted source.", "Compare with another trusted network without disabling security software."],
+    "severity": "medium",
+    "documentation_notes": "A timeout does not prove that the local firewall is faulty."
+  },
+  {
+    "id": "dns_resolution_failure",
+    "patterns": ["name or service not known", "temporary failure in name resolution", "could not resolve host", "dns_probe_finished_nxdomain", "getaddrinfo failed"],
+    "operating_system": "Windows and Ubuntu",
+    "title": "DNS resolution failure",
+    "likely_causes": ["The hostname is misspelled.", "The configured DNS service is unavailable or filtering the name."],
+    "troubleshooting_steps": ["Verify the hostname for typing mistakes.", "Check whether other trusted websites resolve.", "Restart the network connection or contact the network administrator."],
+    "severity": "medium",
+    "documentation_notes": "Do not replace DNS settings with an unknown provider."
+  },
+  {
+    "id": "disk_full",
+    "patterns": ["disk full", "no space left on device", "errno 28", "not enough space on the disk"],
+    "operating_system": "Windows and Ubuntu",
+    "title": "Disk full",
+    "likely_causes": ["The target disk has insufficient free space.", "Temporary files, logs, or large personal files consume available storage."],
+    "troubleshooting_steps": ["Use the operating system's storage view to identify large categories.", "Empty the recycle bin or trash after reviewing its contents.", "Move personal files to trusted storage instead of deleting unfamiliar system files."],
+    "severity": "high",
+    "documentation_notes": "Back up important data before deleting or moving files."
+  },
+  {
+    "id": "permission_denied_ubuntu",
+    "patterns": ["permission denied", "errno 13", "eacces"],
+    "operating_system": "Ubuntu",
+    "title": "Permission denied",
+    "likely_causes": ["The current user does not own the file or lacks the required mode.", "A protected system location was selected."],
+    "troubleshooting_steps": ["Confirm the file owner and intended access level.", "Work inside your home directory when system-wide access is unnecessary.", "Ask an administrator for the narrow permission needed; do not apply broad permissions recursively."],
+    "severity": "medium",
+    "documentation_notes": "Avoid chmod 777 and avoid running untrusted commands with sudo."
+  },
+  {
+    "id": "python_module_not_found",
+    "patterns": ["modulenotfounderror", "no module named", "importerror"],
+    "operating_system": "Windows and Ubuntu",
+    "title": "Python module not found",
+    "likely_causes": ["The package is not installed in the active Python environment.", "The application is using a different interpreter or virtual environment."],
+    "troubleshooting_steps": ["Confirm which virtual environment is active.", "Check the project requirements file for the expected package.", "Install only the documented dependency into that environment and retry."],
+    "severity": "medium",
+    "documentation_notes": "Package import names and installation names can differ."
+  },
+  {
+    "id": "application_not_responding",
+    "patterns": ["not responding", "application hang", "program is not responding"],
+    "operating_system": "Windows and Ubuntu",
+    "title": "Application not responding",
+    "likely_causes": ["The application is busy, blocked on input/output, or low on resources.", "An extension or damaged application state caused a hang."],
+    "troubleshooting_steps": ["Wait briefly and save work in other applications.", "Check CPU and memory usage in FixMate AI.", "Close the application normally if possible, then restart it and review its official support information."],
+    "severity": "medium",
+    "documentation_notes": "Force-closing an application can lose unsaved work."
+  },
+  {
+    "id": "connection_refused",
+    "patterns": ["connection refused", "econnrefused", "actively refused"],
+    "operating_system": "Windows and Ubuntu",
+    "title": "Connection refused",
+    "likely_causes": ["No service is listening at the specified address and port.", "The service is stopped or configured for a different interface."],
+    "troubleshooting_steps": ["Verify the documented hostname and port.", "Check the application's service status through its normal management interface.", "Contact the service owner rather than weakening firewall rules."],
+    "severity": "medium",
+    "documentation_notes": "Do not expose a port publicly as a first troubleshooting step."
+  },
+  {
+    "id": "ssl_certificate_error",
+    "patterns": ["certificate verify failed", "ssl certificate problem", "certificate has expired", "certificate is not trusted", "ssl_error"],
+    "operating_system": "Windows and Ubuntu",
+    "title": "SSL certificate error",
+    "likely_causes": ["The system clock is incorrect.", "The certificate expired, has the wrong hostname, or is signed by an unknown authority."],
+    "troubleshooting_steps": ["Check the computer's date, time, and timezone.", "Verify the site address before continuing.", "Update the operating system certificate store through official updates or contact the service owner."],
+    "severity": "high",
+    "documentation_notes": "Do not disable certificate verification for production or sensitive traffic."
+  },
+  {
+    "id": "windows_update_failure",
+    "patterns": ["windows update failed", "0x800f081f", "0x8024", "we couldn't complete the updates", "failure configuring windows updates"],
+    "operating_system": "Windows",
+    "title": "Windows Update failure",
+    "likely_causes": ["An update dependency or component is unavailable.", "Storage, connectivity, or a pending restart interrupted installation."],
+    "troubleshooting_steps": ["Restart Windows and retry from Windows Update settings.", "Confirm adequate free disk space and a stable connection.", "Use Microsoft's built-in Windows Update troubleshooter and record the exact error code."],
+    "severity": "medium",
+    "documentation_notes": "Use only Microsoft-provided update packages and support guidance."
+  },
+  {
+    "id": "service_unavailable",
+    "patterns": ["service unavailable", "http 503", "503 service unavailable", "temporarily unavailable"],
+    "operating_system": "Windows and Ubuntu",
+    "title": "Service unavailable",
+    "likely_causes": ["The server is overloaded, restarting, or under maintenance.", "A reverse proxy cannot reach its backend service."],
+    "troubleshooting_steps": ["Wait briefly and retry once.", "Check the service's official status page.", "If you manage the service, review its health dashboard and recent changes without exposing internal logs publicly."],
+    "severity": "medium",
+    "documentation_notes": "Repeated retries can make an overloaded service worse."
+  },
+  {
+    "id": "port_already_in_use",
+    "patterns": ["address already in use", "port is already in use", "eaddrinuse", "only one usage of each socket address"],
+    "operating_system": "Windows and Ubuntu",
+    "title": "Port already in use",
+    "likely_causes": ["Another application is listening on the requested port.", "A previous instance of the same application is still running."],
+    "troubleshooting_steps": ["Check whether the application is already open.", "Stop only a duplicate service you recognize through its normal controls.", "Choose another documented development port instead of terminating an unknown process."],
+    "severity": "medium",
+    "documentation_notes": "FixMate AI does not scan ports or terminate the occupying process."
+  },
+  {
+    "id": "command_not_found",
+    "patterns": ["command not found", "is not recognized as an internal or external command", "not recognized as the name of a cmdlet"],
+    "operating_system": "Windows and Ubuntu",
+    "title": "Command not found",
+    "likely_causes": ["The program is not installed.", "Its executable directory is missing from PATH or the wrong shell is being used."],
+    "troubleshooting_steps": ["Check the command spelling and the project's setup instructions.", "Confirm the intended virtual environment or shell is active.", "Install the program only from its official source and reopen the terminal if PATH changed."],
+    "severity": "medium",
+    "documentation_notes": "Do not run similarly named commands copied from untrusted screenshots."
+  },
+  {
+    "id": "python_package_install_failure",
+    "patterns": ["could not build wheels", "failed building wheel", "no matching distribution found", "pip install failed", "subprocess-exited-with-error"],
+    "operating_system": "Windows and Ubuntu",
+    "title": "Python package installation failure",
+    "likely_causes": ["The package does not support the active Python version or platform.", "A compiler, system library, or network dependency is missing."],
+    "troubleshooting_steps": ["Confirm the active Python version and project virtual environment.", "Upgrade pip inside that environment and retry the documented requirement.", "Read the first relevant error in the installation output and consult the package's official installation guide."],
+    "severity": "medium",
+    "documentation_notes": "Avoid installing random wheel files or disabling TLS verification."
+  }
+]
