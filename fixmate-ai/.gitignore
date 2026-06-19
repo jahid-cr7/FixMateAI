@@ -1,0 +1,24 @@
+# Virtual environments
+.venv/
+venv/
+
+# Python caches and test output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local data (keep the directory itself)
+data/*.db
+data/*.db-*
+data/*.sqlite
+data/*.sqlite3
+
+# Streamlit and editor-local files
+.streamlit/secrets.toml
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
