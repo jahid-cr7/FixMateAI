@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-FixMate AI is a beginner-friendly, portfolio-quality system health, network diagnostic, and local screenshot-analysis application for Windows and Ubuntu. Keep every feature read-only and safe by default.
+FixMate AI is a beginner-friendly, portfolio-quality system health, network diagnostic, local screenshot-analysis, and deterministic troubleshooting application for Windows and Ubuntu. Keep every feature read-only and safe by default.
 
 ## Commands
 
@@ -34,6 +34,12 @@ python -m streamlit run app.py
 - Keep connectivity and OCR timeouts bounded so the interface remains responsive.
 - Use parameterized SQLite queries and named additive migrations.
 - Never delete existing Phase 1, Phase 2, or Phase 3 records during startup.
+- Assistant tools must open SQLite in read-only mode and must not call persistence functions.
+- Keep assistant conversations in Streamlit session state only; do not create a conversation table.
+- Every assistant answer must include direct evidence, a relevant timestamp or explicit unavailability, freshness, severity when applicable, and guidance labeled as non-guaranteed.
+- Deterministic routing must state when evidence is absent, stale, or conflicting.
+- Do not add an external LLM or generative fallback without explicit phase approval.
+- Never expose full IP addresses, MAC addresses, usernames, credentials, or sensitive paths in assistant evidence.
 - Do not collect browsing history, scan ports, capture packets, expose MAC addresses, terminate processes, execute repairs, or require administrator/root privileges.
 - Do not commit databases, virtual environments, caches, uploads, or local secrets.
 

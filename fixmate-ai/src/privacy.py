@@ -17,6 +17,22 @@ WINDOWS_USER_PATH_PATTERN = re.compile(
     re.IGNORECASE,
 )
 UNIX_USER_PATH_PATTERN = re.compile(r"(?<!\w)/(?:home|Users)/[^/\s]+(?:/[^\s]*)?")
+IPV4_PATTERN = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+IPV6_PATTERN = re.compile(
+    r"(?<![0-9A-F:])(?:"
+    r"(?:[0-9A-F]{1,4}:){7}[0-9A-F]{1,4}|"
+    r"(?:[0-9A-F]{1,4}:){1,7}:|"
+    r"(?:[0-9A-F]{1,4}:){1,6}:[0-9A-F]{1,4}|"
+    r"(?:[0-9A-F]{1,4}:){1,5}(?::[0-9A-F]{1,4}){1,2}|"
+    r"(?:[0-9A-F]{1,4}:){1,4}(?::[0-9A-F]{1,4}){1,3}|"
+    r"(?:[0-9A-F]{1,4}:){1,3}(?::[0-9A-F]{1,4}){1,4}|"
+    r"(?:[0-9A-F]{1,4}:){1,2}(?::[0-9A-F]{1,4}){1,5}|"
+    r"[0-9A-F]{1,4}:(?:(?::[0-9A-F]{1,4}){1,6})|"
+    r":(?:(?::[0-9A-F]{1,4}){1,7}|:)"
+    r")(?![0-9A-F:])",
+    re.IGNORECASE,
+)
+MAC_PATTERN = re.compile(r"\b(?:[0-9A-F]{2}[:-]){5}[0-9A-F]{2}\b", re.IGNORECASE)
 
 
 def anonymize_image_filename(image_bytes: bytes, image_format: str) -> str:
@@ -36,5 +52,7 @@ def redact_sensitive_text(text: str) -> str:
     redacted = EMAIL_PATTERN.sub("[REDACTED_EMAIL]", redacted)
     redacted = WINDOWS_USER_PATH_PATTERN.sub("[REDACTED_PATH]", redacted)
     redacted = UNIX_USER_PATH_PATTERN.sub("[REDACTED_PATH]", redacted)
+    redacted = MAC_PATTERN.sub("[REDACTED_MAC]", redacted)
+    redacted = IPV4_PATTERN.sub("[REDACTED_IP]", redacted)
+    redacted = IPV6_PATTERN.sub("[REDACTED_IP]", redacted)
     return redacted
-

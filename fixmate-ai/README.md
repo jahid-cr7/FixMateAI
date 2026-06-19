@@ -1,6 +1,6 @@
 # FixMate AI
 
-FixMate AI is a read-only, cross-platform IT support dashboard for Windows and Ubuntu. It combines system health checks, network diagnostics, and a local error-screenshot analyzer with safe, evidence-based guidance.
+FixMate AI is a read-only, cross-platform IT support dashboard for Windows and Ubuntu. It combines system health checks, network diagnostics, a local error-screenshot analyzer, and a deterministic evidence-based troubleshooting assistant.
 
 ## Features
 
@@ -14,8 +14,12 @@ FixMate AI is a read-only, cross-platform IT support dashboard for Windows and U
 - Deterministic matching against 15 curated Windows and Ubuntu problems
 - Confidence scores, matching evidence, and safe troubleshooting steps
 - Privacy redaction before OCR text is stored
+- Deterministic natural-language question routing over collected local evidence
+- Chat-style troubleshooting answers with timestamps, severity, evidence, freshness, and safe guidance
 
 FixMate AI never requires administrator/root access, executes repairs, scans ports, captures packets, runs screenshot text, or stores uploaded screenshot files.
+
+Phase 4 does **not** use a generative AI model or external LLM. It uses explicit intent rules and read-only tools, and it cannot answer beyond the data FixMate AI has collected.
 
 ## Requirements
 
@@ -101,6 +105,24 @@ If no result reaches the 60% confidence threshold, the page displays **No reliab
 
 Open the **Network Diagnostics** tab to configure a host, TCP port, short timeout, and high-latency threshold. The test performs one TCP connection; it is not a port scan. Traffic counters are cumulative operating-system counters.
 
+## Troubleshooting Assistant
+
+Open **Troubleshooting Assistant** from Streamlit's page navigation. It supports these question categories:
+
+- Why is my computer slow?
+- What is using the most memory?
+- Is my disk nearly full?
+- Is my internet connection working?
+- Why is my network slow?
+- What problems were detected today?
+- Explain my latest screenshot error.
+- Summarize this computer's health.
+- What should I fix first?
+
+Each answer provides a direct conclusion, the evidence used, its relevant timestamp and freshness, severity where applicable, and explicitly labeled guidance. When data is missing, stale, or conflicting, the assistant says so instead of inventing a cause.
+
+Questions and conversation history are held only in Streamlit session state. They are not stored in SQLite and are not sent to an external service. Use **Clear conversation** to remove the current session's messages.
+
 ## Tests
 
 ```bash
@@ -112,6 +134,8 @@ Tests generate images in memory and mock OCR and network operations. They requir
 ## Data and privacy
 
 History is stored locally in `data/fixmate.db`, which is ignored by Git. Screenshot files and image bytes are never written to the database or filesystem.
+
+The troubleshooting assistant opens SQLite in read-only mode and creates no conversation table. Evidence is redacted again before display, including likely IP addresses, MAC addresses, email addresses, credentials, usernames contained in paths, and sensitive paths.
 
 Before OCR text is stored, FixMate AI redacts likely:
 
@@ -134,6 +158,9 @@ If the analyzer reports that Tesseract is unavailable:
 
 - `app.py` — Phase 1 and Phase 2 Streamlit dashboard
 - `pages/2_Error_Screenshot_Analyzer.py` — Phase 3 analyzer page
+- `pages/3_Troubleshooting_Assistant.py` — Phase 4 deterministic chat page
+- `src/assistant_tools.py` — read-only evidence tools
+- `src/troubleshooting_assistant.py` — intent routing and answer generation
 - `src/image_processing.py` — validation and OpenCV preprocessing
 - `src/ocr.py` — optional local Tesseract integration
 - `src/error_matcher.py` — deterministic confidence-ranked matching
@@ -150,4 +177,7 @@ If the analyzer reports that Tesseract is unavailable:
 - Confidence is deterministic heuristic evidence, not a statistical probability.
 - Redaction is best-effort; users should remove sensitive information before uploading.
 - Connectivity represents one configured TCP target, and network byte counters are cumulative.
-
+- Intent detection recognizes supported wording and reliable knowledge-base matches, not arbitrary questions.
+- Recommendations are guidance rather than guaranteed fixes.
+- The assistant cannot infer events that were not captured in a scan or diagnostic.
+- Freshness labels do not make old evidence current; run new diagnostics when conditions change.

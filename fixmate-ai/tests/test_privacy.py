@@ -28,3 +28,11 @@ def test_redacts_likely_sensitive_text() -> None:
     assert "[REDACTED_EMAIL]" in redacted
     assert "[REDACTED_PATH]" in redacted
 
+
+def test_redacts_ipv4_ipv6_and_mac_addresses() -> None:
+    """Displayed assistant evidence must not reveal complete network identifiers."""
+    source = "IPv4 203.0.113.10 IPv6 2001:db8:85a3::8a2e:370:7334 MAC AA:BB:CC:DD:EE:FF"
+    redacted = redact_sensitive_text(source)
+    assert "203.0.113.10" not in redacted
+    assert "2001:db8:85a3::8a2e:370:7334" not in redacted
+    assert "AA:BB:CC:DD:EE:FF" not in redacted
