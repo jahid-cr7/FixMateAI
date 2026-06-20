@@ -13,6 +13,9 @@ python -m pip install -r requirements.txt
 python -m pytest
 python -m streamlit run app.py
 python -m api.main
+docker compose config
+docker compose build
+docker compose up
 ```
 
 ## Conventions
@@ -63,6 +66,12 @@ python -m api.main
 - Report filenames must be generated from enums and UTC timestamps, never user-supplied path components.
 - Conversation history is excluded from reports unless the user explicitly selects it for that export.
 - Test PDF output with local ReportLab/PyPDF tooling and provide a privacy-safe HTML fallback when PDF generation fails.
+- Keep Docker optional; native Windows and Ubuntu commands must remain fully supported.
+- Build one non-root slim image and run Streamlit and FastAPI as separate Compose services sharing only the SQLite data volume.
+- Bind container processes to `0.0.0.0` only when required internally; publish Compose ports on `127.0.0.1`.
+- Never copy `.env`, databases, reports, screenshots, caches, tests, virtual environments, or Git metadata into the runtime image.
+- CI must exercise the complete offline-safe suite on Windows and Ubuntu with Python 3.11 and 3.12.
+- Do not install or enable Tesseract, Ollama, or an external AI provider in CI or Docker by default.
 
 ## Before submitting changes
 
@@ -77,3 +86,5 @@ python -m api.main
 9. Confirm all POST routes reject absent/invalid API tokens and no credential is tracked.
 10. Validate the Reports page, both `/api/v1/reports` endpoints, and all four export formats.
 11. Confirm no generated CSV, JSON, HTML, PDF, report directory, or private evidence is tracked.
+12. Run `docker compose config`; when Docker is available, also build and health-check both services.
+13. Confirm native commands still bind FastAPI to `127.0.0.1` by default.

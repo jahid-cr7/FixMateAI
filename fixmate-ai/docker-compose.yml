@@ -1,0 +1,87 @@
+name: fixmate-ai
+
+# Create a private .env file or export FIXMATE_API_TOKEN before starting.
+# An empty token keeps protected POST routes disabled; no token is baked in.
+services:
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fixmate-ai:local
+    command:
+      - python
+      - -m
+      - streamlit
+      - run
+      - app.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
+      - --server.headless=true
+      - --browser.gatherUsageStats=false
+    ports:
+      # Host access stays localhost-only even though the container binds broadly.
+      - "127.0.0.1:8501:8501"
+    environment:
+      FIXMATE_DATABASE_PATH: /app/data/fixmate.db
+      FIXMATE_LLM_PROVIDER: ${FIXMATE_LLM_PROVIDER:-disabled}
+      FIXMATE_LLM_TIMEOUT_SECONDS: ${FIXMATE_LLM_TIMEOUT_SECONDS:-15}
+      FIXMATE_CLOUD_API_URL: ${FIXMATE_CLOUD_API_URL:-}
+      FIXMATE_CLOUD_MODEL: ${FIXMATE_CLOUD_MODEL:-}
+      FIXMATE_CLOUD_API_KEY: ${FIXMATE_CLOUD_API_KEY:-}
+      FIXMATE_OLLAMA_URL: ${FIXMATE_OLLAMA_URL:-http://127.0.0.1:11434/api/chat}
+      FIXMATE_OLLAMA_MODEL: ${FIXMATE_OLLAMA_MODEL:-}
+    volumes:
+      - fixmate_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  api:
+    image: fixmate-ai:local
+    command:
+      - python
+      - -m
+      - api.main
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      FIXMATE_DATABASE_PATH: /app/data/fixmate.db
+      FIXMATE_API_HOST: 0.0.0.0
+      FIXMATE_API_PORT: 8000
+      FIXMATE_API_TOKEN: ${FIXMATE_API_TOKEN:-}
+      FIXMATE_API_CORS_ORIGINS: http://127.0.0.1:8501,http://localhost:8501
+      FIXMATE_LLM_PROVIDER: ${FIXMATE_LLM_PROVIDER:-disabled}
+      FIXMATE_LLM_TIMEOUT_SECONDS: ${FIXMATE_LLM_TIMEOUT_SECONDS:-15}
+      FIXMATE_CLOUD_API_URL: ${FIXMATE_CLOUD_API_URL:-}
+      FIXMATE_CLOUD_MODEL: ${FIXMATE_CLOUD_MODEL:-}
+      FIXMATE_CLOUD_API_KEY: ${FIXMATE_CLOUD_API_KEY:-}
+      FIXMATE_OLLAMA_URL: ${FIXMATE_OLLAMA_URL:-http://127.0.0.1:11434/api/chat}
+      FIXMATE_OLLAMA_MODEL: ${FIXMATE_OLLAMA_MODEL:-}
+    volumes:
+      - fixmate_data:/app/data
+    depends_on:
+      streamlit:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  fixmate_data:
+    name: fixmate_ai_data

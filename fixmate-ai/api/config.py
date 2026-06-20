@@ -9,6 +9,8 @@ from urllib.parse import urlparse
 
 from src.database import DEFAULT_DB_PATH
 
+ALLOWED_API_HOSTS = {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
+
 
 def _positive_int(value: str | None, default: int, maximum: int) -> int:
     """Parse a bounded positive integer or return a safe default."""
@@ -57,7 +59,7 @@ class ApiSettings:
         """Load configuration from environment variables without dotenv side effects."""
         database = os.environ.get("FIXMATE_DATABASE_PATH", "").strip()
         host = os.environ.get("FIXMATE_API_HOST", "127.0.0.1").strip()
-        if host not in {"127.0.0.1", "localhost", "::1"}:
+        if host not in ALLOWED_API_HOSTS:
             host = "127.0.0.1"
         return cls(
             database_path=Path(database) if database else DEFAULT_DB_PATH,

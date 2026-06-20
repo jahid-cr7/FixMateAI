@@ -49,6 +49,42 @@ Invoke-RestMethod -Method Post `
 
 The API provides `/health`, `/api/v1/status`, system scan/history, network diagnostic/history, filtered issues, privacy-safe screenshot-analysis metadata, and deterministic or optional consent-gated assistant queries. History uses `page` and `page_size`; issue records also support date, severity, and type filters. CORS origins, request size, rate limits, host, port, database path, and token are configured through the documented `FIXMATE_API_*` environment variables in `.env.example`.
 
+## Run with Docker
+
+Docker is optional. Native Python remains the recommended mode when FixMate AI should inspect the actual Windows or Ubuntu host. Inside Docker, system and network diagnostics describe the containers rather than the host computer.
+
+Set a private token in the current shell, then build and start both services:
+
+```powershell
+$env:FIXMATE_API_TOKEN = Read-Host "Enter a local API token"
+docker compose build
+docker compose up
+```
+
+Ubuntu uses the equivalent `export FIXMATE_API_TOKEN="your-private-random-token"`. Open:
+
+- Streamlit: `http://127.0.0.1:8501`
+- FastAPI health: `http://127.0.0.1:8000/health`
+- Swagger: `http://127.0.0.1:8000/docs`
+
+Useful lifecycle commands:
+
+```bash
+docker compose config
+docker compose logs
+docker compose down
+```
+
+Both services use the named `fixmate_ai_data` volume for `/app/data`. `docker compose down` keeps the volume and its SQLite history. Running `docker compose down --volumes` deliberately deletes that Docker-managed history.
+
+The image contains no API token, `.env` file, local database, report, screenshot, virtual environment, test cache, or Git metadata. It runs as a non-root user and does not install Tesseract or enable an AI provider. Protected API POST endpoints remain unavailable when `FIXMATE_API_TOKEN` is empty.
+
+See [Docker guide](docs/DOCKER.md) for configuration details and troubleshooting.
+
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on pull requests and pushes to `main`. Its matrix covers Ubuntu and Windows with Python 3.11 and 3.12, caches pip downloads, installs `requirements.txt`, and runs the complete pytest suite. Tests mock OCR, provider, and network boundaries, so CI needs no Tesseract, Ollama, API key, or external AI service.
+
 ## Diagnostic report exports
 
 Open **Reports** in Streamlit to generate a system-health, network, screenshot-analysis, assistant-summary, or full diagnostic bundle. Select an optional UTC date range, include or exclude sections, preview the result where practical, and download CSV, JSON, HTML, or PDF.
@@ -311,3 +347,6 @@ If the analyzer reports that Tesseract is unavailable:
 - PDF uses built-in fonts and replaces unsupported characters to avoid broken glyphs.
 - Large evidence histories can produce large base64 API responses; report generation is rate-limited and intended for local use.
 - Redaction is best-effort. Users should preview every report before sharing it with support staff.
+- Container diagnostics reflect container resources and networking, not the Docker host.
+- The slim image intentionally omits Tesseract; screenshot text can still be entered manually.
+- Loopback-only Ollama configuration is intended for native execution, because container loopback refers to the container itself.
