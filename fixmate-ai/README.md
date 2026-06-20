@@ -16,10 +16,36 @@ FixMate AI is a read-only, cross-platform IT support dashboard for Windows and U
 - Privacy redaction before OCR text is stored
 - Deterministic natural-language question routing over collected local evidence
 - Chat-style troubleshooting answers with timestamps, severity, evidence, freshness, and safe guidance
+- Versioned, localhost-first FastAPI endpoints with OpenAPI documentation
 
 FixMate AI never requires administrator/root access, executes repairs, scans ports, captures packets, runs screenshot text, or stores uploaded screenshot files.
 
 Deterministic mode remains the default source of truth. Phase 5 can optionally add a labeled LLM explanation, but the application works normally without an API key, internet, Ollama, or any model.
+
+## Running Streamlit and FastAPI
+
+Start the dashboard and API in separate terminals from the `fixmate-ai` directory:
+
+```powershell
+# Terminal 1
+python -m streamlit run app.py
+
+# Terminal 2: create a private token for this shell only
+$env:FIXMATE_API_TOKEN = Read-Host "Enter a local API token"
+python -m api.main
+```
+
+On Ubuntu, use `export FIXMATE_API_TOKEN="your-private-random-token"` before `python -m api.main`. The API binds to `127.0.0.1:8000` by default. Open `http://127.0.0.1:8000/docs` for interactive Swagger documentation. Never place a real token in `.env.example` or commit it.
+
+GET routes are read-only and do not require authentication. POST routes require the token in the `X-API-Token` header; when no token is configured, POST routes are intentionally unavailable. Example:
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/system/scans `
+  -Headers @{ "X-API-Token" = $env:FIXMATE_API_TOKEN }
+```
+
+The API provides `/health`, `/api/v1/status`, system scan/history, network diagnostic/history, filtered issues, privacy-safe screenshot-analysis metadata, and deterministic or optional consent-gated assistant queries. History uses `page` and `page_size`; issue records also support date, severity, and type filters. CORS origins, request size, rate limits, host, port, database path, and token are configured through the documented `FIXMATE_API_*` environment variables in `.env.example`.
 
 ## Requirements
 
@@ -212,6 +238,7 @@ If the analyzer reports that Tesseract is unavailable:
 ## Project structure
 
 - `app.py` — Phase 1 and Phase 2 Streamlit dashboard
+- `api/` — Phase 6 FastAPI application, routers, schemas, security, and services
 - `pages/2_Error_Screenshot_Analyzer.py` — Phase 3 analyzer page
 - `pages/3_Troubleshooting_Assistant.py` — Phase 4 deterministic chat page
 - `src/assistant_tools.py` — read-only evidence tools
@@ -228,6 +255,7 @@ If the analyzer reports that Tesseract is unavailable:
 - `data/error_knowledge_base.json` — curated local troubleshooting entries
 - `src/database.py` — additive migrations and persistence for all phases
 - `tests/` — simulated, generated, and mocked automated tests
+- `tests/api/` — isolated FastAPI endpoint, security, filtering, and failure tests
 
 ## Current limitations
 
@@ -244,3 +272,5 @@ If the analyzer reports that Tesseract is unavailable:
 - Cloud configuration and pricing depend on the selected compatible provider.
 - Local models require separate installation and may be slow on modest hardware.
 - FixMate AI is not autonomous and never claims to have repaired the computer.
+- The in-memory API rate limiter is process-local; multi-worker deployments need a shared limiter.
+- Local token authentication protects POST routes but is not a replacement for TLS or an internet-facing identity system. The API is designed for localhost use.

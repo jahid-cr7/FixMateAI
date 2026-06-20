@@ -12,6 +12,7 @@ Run from the `fixmate-ai` directory with the virtual environment activated:
 python -m pip install -r requirements.txt
 python -m pytest
 python -m streamlit run app.py
+python -m api.main
 ```
 
 ## Conventions
@@ -52,6 +53,11 @@ python -m streamlit run app.py
 - Never expose full IP addresses, MAC addresses, usernames, credentials, or sensitive paths in assistant evidence.
 - Do not collect browsing history, scan ports, capture packets, expose MAC addresses, terminate processes, execute repairs, or require administrator/root privileges.
 - Do not commit databases, virtual environments, caches, uploads, or local secrets.
+- Keep FastAPI routes thin: validation and HTTP concerns belong in routers; reusable business and database logic belongs in services.
+- API tests must inject a temporary database and mock collectors, connectivity, OCR, and model providers.
+- Protect every API POST route with `X-API-Token`, compare tokens in constant time, and never log token values.
+- Keep API responses privacy-redacted, timestamped in UTC, and free of exception traces.
+- Bind the API to `127.0.0.1` by default and never enable wildcard CORS origins.
 
 ## Before submitting changes
 
@@ -62,4 +68,5 @@ python -m streamlit run app.py
 5. Update `README.md` and the relevant phase plan when behavior changes.
 6. Run provider tests with injected transports only; automated tests must never contact cloud or Ollama endpoints.
 7. Confirm the complete app works with all `FIXMATE_LLM_*` variables absent.
-
+8. Run `python -m pytest tests/api` and verify `/health`, `/docs`, and all Streamlit pages.
+9. Confirm all POST routes reject absent/invalid API tokens and no credential is tracked.
