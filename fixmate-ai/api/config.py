@@ -47,6 +47,7 @@ class ApiSettings:
     max_request_bytes: int = 65_536
     diagnostic_rate_limit: int = 5
     assistant_rate_limit: int = 20
+    report_rate_limit: int = 10
     rate_window_seconds: int = 60
     host: str = "127.0.0.1"
     port: int = 8000
@@ -71,10 +72,12 @@ class ApiSettings:
             assistant_rate_limit=_positive_int(
                 os.environ.get("FIXMATE_API_ASSISTANT_RATE_LIMIT"), 20, 1000
             ),
+            report_rate_limit=_positive_int(
+                os.environ.get("FIXMATE_API_REPORT_RATE_LIMIT"), 10, 1000
+            ),
             rate_window_seconds=_positive_int(
                 os.environ.get("FIXMATE_API_RATE_WINDOW_SECONDS"), 60, 3600
             ),
             host=host,
             port=_positive_int(os.environ.get("FIXMATE_API_PORT"), 8000, 65535),
         )
-

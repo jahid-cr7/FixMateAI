@@ -12,6 +12,7 @@ from api.security import InMemoryRateLimiter, token_matches
 from api.services.assistant_service import AssistantService
 from api.services.data_service import DataService
 from api.services.diagnostic_service import DiagnosticService
+from api.services.report_service import ReportService
 
 
 def get_settings(request: Request) -> ApiSettings:
@@ -39,6 +40,13 @@ def get_assistant_service(
 ) -> AssistantService:
     """Create a request-scoped assistant service."""
     return AssistantService(settings.database_path)
+
+
+def get_report_service(
+    settings: Annotated[ApiSettings, Depends(get_settings)],
+) -> ReportService:
+    """Create a request-scoped in-memory report service."""
+    return ReportService(settings.database_path)
 
 
 def require_api_token(
@@ -85,3 +93,10 @@ def enforce_assistant_rate_limit(
     """Rate-limit assistant POSTs independently."""
     _rate_limit(request, "assistant", settings.assistant_rate_limit, settings)
 
+
+def enforce_report_rate_limit(
+    request: Request,
+    settings: Annotated[ApiSettings, Depends(get_settings)],
+) -> None:
+    """Rate-limit potentially expensive report generation independently."""
+    _rate_limit(request, "report", settings.report_rate_limit, settings)

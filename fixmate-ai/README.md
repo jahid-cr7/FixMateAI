@@ -17,6 +17,8 @@ FixMate AI is a read-only, cross-platform IT support dashboard for Windows and U
 - Deterministic natural-language question routing over collected local evidence
 - Chat-style troubleshooting answers with timestamps, severity, evidence, freshness, and safe guidance
 - Versioned, localhost-first FastAPI endpoints with OpenAPI documentation
+- Privacy-safe system, network, screenshot, assistant, and full diagnostic reports
+- In-memory CSV, JSON, standalone HTML, and printable PDF exports
 
 FixMate AI never requires administrator/root access, executes repairs, scans ports, captures packets, runs screenshot text, or stores uploaded screenshot files.
 
@@ -46,6 +48,34 @@ Invoke-RestMethod -Method Post `
 ```
 
 The API provides `/health`, `/api/v1/status`, system scan/history, network diagnostic/history, filtered issues, privacy-safe screenshot-analysis metadata, and deterministic or optional consent-gated assistant queries. History uses `page` and `page_size`; issue records also support date, severity, and type filters. CORS origins, request size, rate limits, host, port, database path, and token are configured through the documented `FIXMATE_API_*` environment variables in `.env.example`.
+
+## Diagnostic report exports
+
+Open **Reports** in Streamlit to generate a system-health, network, screenshot-analysis, assistant-summary, or full diagnostic bundle. Select an optional UTC date range, include or exclude sections, preview the result where practical, and download CSV, JSON, HTML, or PDF.
+
+Reports are assembled from recorded evidence and generated entirely in memory. FixMate AI does not store exports, accept output paths, or include screenshot files. It removes raw OCR text and applies existing redaction again to likely credentials, usernames, email addresses, complete IP/MAC addresses, and sensitive user paths. Conversation history is excluded unless the user explicitly selects the current Streamlit conversation for that one report.
+
+The API exposes:
+
+- `GET /api/v1/reports/types` — discover report types, formats, and sections
+- `POST /api/v1/reports/generate` — generate an authenticated report as metadata plus base64 content
+
+Example JSON report request:
+
+```powershell
+$body = @{
+  report_type = "full_diagnostic"
+  format = "json"
+  sections = @("system", "network", "issues", "screenshot", "assistant", "recommendations")
+  include_conversation = $false
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/reports/generate `
+  -Headers @{ "X-API-Token" = $env:FIXMATE_API_TOKEN } `
+  -ContentType "application/json" `
+  -Body $body
+```
 
 ## Requirements
 
@@ -241,6 +271,10 @@ If the analyzer reports that Tesseract is unavailable:
 - `api/` — Phase 6 FastAPI application, routers, schemas, security, and services
 - `pages/2_Error_Screenshot_Analyzer.py` — Phase 3 analyzer page
 - `pages/3_Troubleshooting_Assistant.py` — Phase 4 deterministic chat page
+- `pages/4_Reports.py` — Phase 7 report selection, preview, and download page
+- `src/report_builder.py` — deterministic read-only evidence assembly
+- `src/report_exporters.py` — in-memory CSV, JSON, HTML, and PDF exporters
+- `src/report_privacy.py` — recursive defense-in-depth report redaction
 - `src/assistant_tools.py` — read-only evidence tools
 - `src/troubleshooting_assistant.py` — intent routing and answer generation
 - `src/safe_agent_tools.py` — strict minimized read-only provider tool allowlist
@@ -274,3 +308,6 @@ If the analyzer reports that Tesseract is unavailable:
 - FixMate AI is not autonomous and never claims to have repaired the computer.
 - The in-memory API rate limiter is process-local; multi-worker deployments need a shared limiter.
 - Local token authentication protects POST routes but is not a replacement for TLS or an internet-facing identity system. The API is designed for localhost use.
+- PDF uses built-in fonts and replaces unsupported characters to avoid broken glyphs.
+- Large evidence histories can produce large base64 API responses; report generation is rate-limited and intended for local use.
+- Redaction is best-effort. Users should preview every report before sharing it with support staff.

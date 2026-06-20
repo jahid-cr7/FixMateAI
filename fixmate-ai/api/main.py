@@ -15,7 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from api.config import ApiSettings
 from api.middleware import RequestContextMiddleware
 from api.responses import utc_now
-from api.routers import assistant, general, issues, network, screenshot, system
+from api.routers import assistant, general, issues, network, reports, screenshot, system
 from api.schemas.common import ErrorResponse
 from api.security import InMemoryRateLimiter
 from src.database import initialize_database
@@ -127,6 +127,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
     application.include_router(issues.router)
     application.include_router(screenshot.router)
     application.include_router(assistant.router)
+    application.include_router(reports.router)
     return application
 
 

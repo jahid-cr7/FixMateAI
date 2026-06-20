@@ -58,6 +58,11 @@ python -m api.main
 - Protect every API POST route with `X-API-Token`, compare tokens in constant time, and never log token values.
 - Keep API responses privacy-redacted, timestamped in UTC, and free of exception traces.
 - Bind the API to `127.0.0.1` by default and never enable wildcard CORS origins.
+- Build reports only from existing read-only evidence tools and sanitize again at the report boundary.
+- Keep CSV, JSON, HTML, and PDF report generation in memory; never accept an output path or store exports by default.
+- Report filenames must be generated from enums and UTC timestamps, never user-supplied path components.
+- Conversation history is excluded from reports unless the user explicitly selects it for that export.
+- Test PDF output with local ReportLab/PyPDF tooling and provide a privacy-safe HTML fallback when PDF generation fails.
 
 ## Before submitting changes
 
@@ -70,3 +75,5 @@ python -m api.main
 7. Confirm the complete app works with all `FIXMATE_LLM_*` variables absent.
 8. Run `python -m pytest tests/api` and verify `/health`, `/docs`, and all Streamlit pages.
 9. Confirm all POST routes reject absent/invalid API tokens and no credential is tracked.
+10. Validate the Reports page, both `/api/v1/reports` endpoints, and all four export formats.
+11. Confirm no generated CSV, JSON, HTML, PDF, report directory, or private evidence is tracked.
