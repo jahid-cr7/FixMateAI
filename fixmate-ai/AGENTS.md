@@ -13,6 +13,7 @@ python -m pip install -r requirements.txt
 python -m pytest
 python -m streamlit run app.py
 python -m api.main
+python scripts/generate_demo_data.py --output data/demo_fixmate.db --seed 2026 --days 14
 docker compose config
 docker compose build
 docker compose up
@@ -72,6 +73,11 @@ docker compose up
 - Never copy `.env`, databases, reports, screenshots, caches, tests, virtual environments, or Git metadata into the runtime image.
 - CI must exercise the complete offline-safe suite on Windows and Ubuntu with Python 3.11 and 3.12.
 - Do not install or enable Tesseract, Ollama, or an external AI provider in CI or Docker by default.
+- Demo records must be deterministic, explicitly synthetic, free of personal identifiers, and stored only in an ignored database.
+- Never let demo tooling overwrite `data/fixmate.db` or an unmarked existing database.
+- Portfolio assets must use synthetic values and must be labeled as mockups rather than live proof.
+- Keep README, architecture, privacy, security, demo, roadmap, and interview claims aligned with implemented behavior.
+- Never describe FixMate AI as autonomous or claim that it executed a repair.
 
 ## Before submitting changes
 
@@ -88,3 +94,5 @@ docker compose up
 11. Confirm no generated CSV, JSON, HTML, PDF, report directory, or private evidence is tracked.
 12. Run `docker compose config`; when Docker is available, also build and health-check both services.
 13. Confirm native commands still bind FastAPI to `127.0.0.1` by default.
+14. Run demo-generator safety tests and confirm generated demo databases remain ignored.
+15. Verify every local README link and synthetic asset exists before publishing.

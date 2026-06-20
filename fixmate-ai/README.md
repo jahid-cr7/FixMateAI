@@ -1,131 +1,116 @@
 # FixMate AI
 
-FixMate AI is a read-only, cross-platform IT support dashboard for Windows and Ubuntu. It combines system health checks, network diagnostics, a local error-screenshot analyzer, and a deterministic evidence-based troubleshooting assistant.
+### Local-first system diagnostics, evidence-based troubleshooting, and privacy-safe support reports for Windows and Ubuntu
 
-## Features
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/Deployment-Docker-2496ED?logo=docker&logoColor=white)](docs/DOCKER.md)
+[![CI](https://img.shields.io/badge/CI-Windows%20%7C%20Ubuntu-2088FF?logo=githubactions&logoColor=white)](.github/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/Tests-pytest-0A9EDC?logo=pytest&logoColor=white)](tests/)
 
-- CPU, memory, disk, operating-system, boot-time, and top-process metrics
-- Threshold-based system issue detection and health scoring
-- Active network interfaces, traffic counters, connectivity, and latency diagnostics
-- SQLite history with additive, non-destructive migrations
-- Local PNG/JPG/JPEG screenshot analysis up to 5 MB
-- OpenCV grayscale, contrast, denoising, and optional threshold preprocessing
-- Local Tesseract OCR with editable extracted text
-- Deterministic matching against 15 curated Windows and Ubuntu problems
-- Confidence scores, matching evidence, and safe troubleshooting steps
-- Privacy redaction before OCR text is stored
-- Deterministic natural-language question routing over collected local evidence
-- Chat-style troubleshooting answers with timestamps, severity, evidence, freshness, and safe guidance
-- Versioned, localhost-first FastAPI endpoints with OpenAPI documentation
-- Privacy-safe system, network, screenshot, assistant, and full diagnostic reports
-- In-memory CSV, JSON, standalone HTML, and printable PDF exports
+FixMate AI is a portfolio-scale IT support application that collects system and network evidence, detects explicit problems, stores local history, analyzes error screenshots with local OCR, answers supported troubleshooting questions, and exports professional diagnostic reports.
 
-FixMate AI never requires administrator/root access, executes repairs, scans ports, captures packets, runs screenshot text, or stores uploaded screenshot files.
+The project is deliberately **read-only**. It does not require administrator/root privileges, execute repairs, terminate processes, change settings, scan ports, capture packets, inspect browsing history, or read personal file contents. Deterministic evidence remains authoritative; optional AI can add a labeled explanation but cannot replace facts or access unrestricted tools.
 
-Deterministic mode remains the default source of truth. Phase 5 can optionally add a labeled LLM explanation, but the application works normally without an API key, internet, Ollama, or any model.
+> The images below are editable vector mockups using **SYNTHETIC DEMO** data. They contain no real device or personal information.
 
-## Running Streamlit and FastAPI
+## Portfolio highlights
 
-Start the dashboard and API in separate terminals from the `fixmate-ai` directory:
+- One typed service layer reused by Streamlit and a versioned FastAPI backend
+- Cross-platform collection through `psutil`, Python standard-library APIs, and `pathlib`
+- Additive SQLite migrations that preserve existing records
+- Local Pillow/OpenCV/Tesseract screenshot pipeline with deterministic knowledge-base matching
+- Evidence-grounded assistant with explicit intent routing and read-only tools
+- Optional consent-gated cloud or loopback Ollama-compatible explanation provider
+- In-memory CSV, JSON, HTML, and PDF diagnostic reports
+- Localhost-first API security, token-protected POST routes, request limits, and rate limits
+- Non-root Docker Compose deployment with a shared SQLite volume
+- Offline-safe automated tests on Windows and Ubuntu with Python 3.11 and 3.12
+- Deterministic synthetic demo generator with overwrite protection
 
-```powershell
-# Terminal 1
-python -m streamlit run app.py
+## Feature progression
 
-# Terminal 2: create a private token for this shell only
-$env:FIXMATE_API_TOKEN = Read-Host "Enter a local API token"
-python -m api.main
+| Phase | Delivered capability |
+|---|---|
+| 1 | CPU, memory, disk, OS, boot time, top processes, health score, issue rules, SQLite history, Plotly dashboard |
+| 2 | Active interfaces, traffic counters, bounded connectivity/latency checks, network issues and history |
+| 3 | Validated image upload, OpenCV preprocessing, optional local Tesseract OCR, curated error matching |
+| 4 | Deterministic natural-language troubleshooting over collected local evidence |
+| 5 | Optional bounded LLM explanation with consent, redaction, allowlisted tools, and deterministic fallback |
+| 6 | Versioned FastAPI backend with schemas, pagination, filters, request IDs, auth, CORS, and rate limits |
+| 7 | Privacy-safe system, network, screenshot, assistant, and full reports in CSV/JSON/HTML/PDF |
+| 8 | Python slim Docker image, separate Compose services, shared volume, Windows/Ubuntu CI matrix |
+| 9 | Safe synthetic demo tooling, vector assets, architecture/security docs, and interview package |
+
+## Screenshots
+
+### System health dashboard
+
+![Synthetic system-health dashboard](docs/assets/system-health.svg)
+
+### Error Screenshot Analyzer
+
+![Synthetic screenshot analyzer](docs/assets/screenshot-analyzer.svg)
+
+### Troubleshooting Assistant
+
+![Synthetic evidence-based assistant](docs/assets/assistant.svg)
+
+### Diagnostic reports
+
+![Synthetic report export page](docs/assets/reports.svg)
+
+### FastAPI and Swagger
+
+![Synthetic FastAPI Swagger page](docs/assets/swagger.svg)
+
+See the [demo guide](docs/DEMO.md) for safe screenshot capture instructions.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Host["Windows / Ubuntu"] --> Collect["Read-only collectors"]
+    Collect --> Detect["Deterministic detectors"]
+    Detect --> DB[("SQLite")]
+    DB --> UI["Streamlit"]
+    DB --> API["FastAPI v1"]
+    DB --> Tools["Read-only assistant tools"]
+    Tools --> Assistant["Deterministic assistant"]
+    DB --> Reports["Privacy-safe report builder"]
+    KB["Local knowledge base"] --> Assistant
+    KB --> OCR["Local OCR matcher"]
+    OCR --> DB
 ```
 
-On Ubuntu, use `export FIXMATE_API_TOKEN="your-private-random-token"` before `python -m api.main`. The API binds to `127.0.0.1:8000` by default. Open `http://127.0.0.1:8000/docs` for interactive Swagger documentation. Never place a real token in `.env.example` or commit it.
+Collection, detection, persistence, assistant routing, provider integration, reporting, and presentation are independent modules. Detailed data, privacy, API, assistant, database, and Docker diagrams are in [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-GET routes are read-only and do not require authentication. POST routes require the token in the `X-API-Token` header; when no token is configured, POST routes are intentionally unavailable. Example:
+## Technology stack
 
-```powershell
-Invoke-RestMethod -Method Post `
-  -Uri http://127.0.0.1:8000/api/v1/system/scans `
-  -Headers @{ "X-API-Token" = $env:FIXMATE_API_TOKEN }
-```
+| Area | Technology | Purpose |
+|---|---|---|
+| Runtime | Python 3.11+ | Cross-platform application and tooling |
+| UI | Streamlit | Interactive dashboards and troubleshooting pages |
+| API | FastAPI, Pydantic, Uvicorn | Versioned local REST API and OpenAPI documentation |
+| Metrics | psutil | CPU, memory, disk, process, and network counters |
+| Analytics | Pandas, Plotly | History tables and interactive charts |
+| Vision/OCR | Pillow, OpenCV, pytesseract | Validation, preprocessing, and optional local OCR |
+| Persistence | SQLite (`sqlite3`) | Local scans, issues, network, and screenshot metadata |
+| Reports | ReportLab, PyPDF | In-memory PDF generation and validation |
+| Testing | pytest, FastAPI TestClient, Streamlit AppTest | Unit, integration, API, privacy, and UI validation |
+| Deployment | Docker, Docker Compose | Reproducible non-root local services |
+| CI | GitHub Actions | Windows/Ubuntu and Python 3.11/3.12 matrix |
 
-The API provides `/health`, `/api/v1/status`, system scan/history, network diagnostic/history, filtered issues, privacy-safe screenshot-analysis metadata, and deterministic or optional consent-gated assistant queries. History uses `page` and `page_size`; issue records also support date, severity, and type filters. CORS origins, request size, rate limits, host, port, database path, and token are configured through the documented `FIXMATE_API_*` environment variables in `.env.example`.
+## Quick start without Docker
 
-## Run with Docker
+Native execution is the recommended mode for diagnosing the actual computer. Docker diagnostics describe containers rather than the host.
 
-Docker is optional. Native Python remains the recommended mode when FixMate AI should inspect the actual Windows or Ubuntu host. Inside Docker, system and network diagnostics describe the containers rather than the host computer.
-
-Set a private token in the current shell, then build and start both services:
-
-```powershell
-$env:FIXMATE_API_TOKEN = Read-Host "Enter a local API token"
-docker compose build
-docker compose up
-```
-
-Ubuntu uses the equivalent `export FIXMATE_API_TOKEN="your-private-random-token"`. Open:
-
-- Streamlit: `http://127.0.0.1:8501`
-- FastAPI health: `http://127.0.0.1:8000/health`
-- Swagger: `http://127.0.0.1:8000/docs`
-
-Useful lifecycle commands:
-
-```bash
-docker compose config
-docker compose logs
-docker compose down
-```
-
-Both services use the named `fixmate_ai_data` volume for `/app/data`. `docker compose down` keeps the volume and its SQLite history. Running `docker compose down --volumes` deliberately deletes that Docker-managed history.
-
-The image contains no API token, `.env` file, local database, report, screenshot, virtual environment, test cache, or Git metadata. It runs as a non-root user and does not install Tesseract or enable an AI provider. Protected API POST endpoints remain unavailable when `FIXMATE_API_TOKEN` is empty.
-
-See [Docker guide](docs/DOCKER.md) for configuration details and troubleshooting.
-
-## Continuous integration
-
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on pull requests and pushes to `main`. Its matrix covers Ubuntu and Windows with Python 3.11 and 3.12, caches pip downloads, installs `requirements.txt`, and runs the complete pytest suite. Tests mock OCR, provider, and network boundaries, so CI needs no Tesseract, Ollama, API key, or external AI service.
-
-## Diagnostic report exports
-
-Open **Reports** in Streamlit to generate a system-health, network, screenshot-analysis, assistant-summary, or full diagnostic bundle. Select an optional UTC date range, include or exclude sections, preview the result where practical, and download CSV, JSON, HTML, or PDF.
-
-Reports are assembled from recorded evidence and generated entirely in memory. FixMate AI does not store exports, accept output paths, or include screenshot files. It removes raw OCR text and applies existing redaction again to likely credentials, usernames, email addresses, complete IP/MAC addresses, and sensitive user paths. Conversation history is excluded unless the user explicitly selects the current Streamlit conversation for that one report.
-
-The API exposes:
-
-- `GET /api/v1/reports/types` — discover report types, formats, and sections
-- `POST /api/v1/reports/generate` — generate an authenticated report as metadata plus base64 content
-
-Example JSON report request:
+### Windows PowerShell
 
 ```powershell
-$body = @{
-  report_type = "full_diagnostic"
-  format = "json"
-  sections = @("system", "network", "issues", "screenshot", "assistant", "recommendations")
-  include_conversation = $false
-} | ConvertTo-Json
-
-Invoke-RestMethod -Method Post `
-  -Uri http://127.0.0.1:8000/api/v1/reports/generate `
-  -Headers @{ "X-API-Token" = $env:FIXMATE_API_TOKEN } `
-  -ContentType "application/json" `
-  -Body $body
-```
-
-## Requirements
-
-- Python 3.11 or newer
-- Windows 10/11 or a current Ubuntu release
-- Tesseract OCR is optional but required for automatic text extraction
-
-The main system-health and network dashboard works normally without Tesseract. The analyzer still permits manual error-text entry when OCR is unavailable.
-
-## Windows setup
-
-Open PowerShell in the `fixmate-ai` directory:
-
-```powershell
+git clone <your-repository-url>
+cd fixmate-ai
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -133,40 +118,13 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-If your prompt is at `D:\FixMateAI`, first run:
+If PowerShell blocks activation, use an appropriate local execution policy or call `.\.venv\Scripts\python.exe` directly. FixMate AI itself does not require administrator privileges.
 
-```powershell
-cd .\fixmate-ai
-```
-
-### Windows Tesseract installation
-
-1. Install a trusted current Windows build of Tesseract OCR.
-2. During installation, note the executable path. A common location is:
-
-   ```text
-   C:\Program Files\Tesseract-OCR\tesseract.exe
-   ```
-
-3. Add the Tesseract directory to `PATH`, or set the explicit command location:
-
-   ```powershell
-   setx TESSERACT_CMD "C:\Program Files\Tesseract-OCR\tesseract.exe"
-   ```
-
-4. Open a new PowerShell window and verify:
-
-   ```powershell
-   tesseract --version
-   ```
-
-`TESSERACT_CMD` is useful when Tesseract is installed but intentionally not added to the global `PATH`.
-
-## Ubuntu setup
+### Ubuntu
 
 ```bash
-sudo apt update
-sudo apt install python3.11 python3.11-venv tesseract-ocr
+git clone <your-repository-url>
+cd fixmate-ai
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -174,32 +132,100 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-Verify OCR installation with:
+Open `http://127.0.0.1:8501`.
 
-```bash
+## Optional local Tesseract OCR
+
+The application starts without Tesseract. Users can enter error text manually.
+
+Windows: install a trusted current Tesseract build, add it to `PATH`, or set:
+
+```powershell
+$env:TESSERACT_CMD="C:\Program Files\Tesseract-OCR\tesseract.exe"
 tesseract --version
 ```
 
-The `sudo` commands install system packages only; running FixMate AI does not require root privileges.
+Ubuntu:
 
-## Using the Error Screenshot Analyzer
+```bash
+sudo apt update
+sudo apt install tesseract-ocr
+tesseract --version
+```
 
-1. Open **Error Screenshot Analyzer** from Streamlit's page navigation.
-2. Review the privacy warning and upload a PNG, JPG, or JPEG no larger than 5 MB.
-3. Compare the original and processed previews. Disable thresholding if colored text becomes less readable.
-4. Select **Extract text with local OCR**, or type the message manually if Tesseract is unavailable.
-5. Correct OCR mistakes in the editable text box.
-6. Select **Analyze error text** to view ranked reliable matches.
+Restart Streamlit after changing Tesseract configuration.
 
-If no result reaches the 60% confidence threshold, the page displays **No reliable match found** and does not invent a solution.
+## FastAPI
 
-## Network diagnostics
+Start the API separately. Native execution binds to `127.0.0.1:8000` by default.
 
-Open the **Network Diagnostics** tab to configure a host, TCP port, short timeout, and high-latency threshold. The test performs one TCP connection; it is not a port scan. Traffic counters are cumulative operating-system counters.
+PowerShell:
 
-## Troubleshooting Assistant
+```powershell
+$env:FIXMATE_API_TOKEN = Read-Host "Enter a private local API token"
+python -m api.main
+```
 
-Open **Troubleshooting Assistant** from Streamlit's page navigation. It supports these question categories:
+Ubuntu:
+
+```bash
+export FIXMATE_API_TOKEN="replace-with-a-private-local-token"
+python -m api.main
+```
+
+- Health: `http://127.0.0.1:8000/health`
+- Status: `http://127.0.0.1:8000/api/v1/status`
+- Swagger: `http://127.0.0.1:8000/docs`
+
+GET routes are read-only. Protected POST routes require `X-API-Token`; when no token is configured they return a safe 503 rather than operating without authentication. Tokens are loaded only from environment variables and compared in constant time.
+
+Example:
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8000/api/v1/system/scans `
+  -Headers @{ "X-API-Token" = $env:FIXMATE_API_TOKEN }
+```
+
+## Run with Docker
+
+Docker is optional. Set a runtime token and start the two services:
+
+```powershell
+$env:FIXMATE_API_TOKEN = Read-Host "Enter a private local API token"
+docker compose config
+docker compose build
+docker compose up
+```
+
+Ubuntu uses the equivalent `export FIXMATE_API_TOKEN="..."`. Compose publishes Streamlit at `127.0.0.1:8501` and FastAPI at `127.0.0.1:8000`. Both containers share the `fixmate_ai_data` volume.
+
+```bash
+docker compose logs
+docker compose down
+```
+
+`docker compose down` preserves history; `docker compose down --volumes` deliberately removes the Docker-managed database. See [DOCKER.md](docs/DOCKER.md).
+
+## Synthetic demo data
+
+Generate a dedicated, deterministic demo database:
+
+```bash
+python scripts/generate_demo_data.py --output data/demo_fixmate.db --seed 2026 --days 14
+```
+
+Regenerate only a recognized marked demo:
+
+```bash
+python scripts/generate_demo_data.py --output data/demo_fixmate.db --seed 2026 --days 14 --reset-demo
+```
+
+The generator refuses the normal `data/fixmate.db`, refuses existing outputs by default, and never replaces an unmarked database. It uses explicit synthetic labels and reserved `.invalid` hostnames. Generated databases are ignored by Git. See [DEMO.md](docs/DEMO.md).
+
+## Troubleshooting assistant
+
+Supported deterministic question categories include:
 
 - Why is my computer slow?
 - What is using the most memory?
@@ -208,145 +234,140 @@ Open **Troubleshooting Assistant** from Streamlit's page navigation. It supports
 - Why is my network slow?
 - What problems were detected today?
 - Explain my latest screenshot error.
-- Summarize this computer's health.
+- Summarize this computer’s health.
 - What should I fix first?
 
-Each answer provides a direct conclusion, the evidence used, its relevant timestamp and freshness, severity where applicable, and explicitly labeled guidance. When data is missing, stale, or conflicting, the assistant says so instead of inventing a cause.
+Every answer contains a direct conclusion, evidence, a relevant timestamp, freshness, severity where applicable, and guidance labeled as non-guaranteed. Missing, stale, or conflicting evidence is stated explicitly.
 
-Questions and conversation history are held only in Streamlit session state and are not stored in SQLite. Deterministic mode sends nothing externally; cloud AI mode may send the current redacted question and minimized evidence only after explicit consent. Use **Clear conversation** to remove the current session's messages.
+Optional model enhancement is disabled by default. Provider configuration is documented in [.env.example](.env.example). Cloud evidence requires explicit session consent; invalid or unsafe output falls back to the deterministic answer. The application works normally without an API key, internet, Ollama, or any model.
 
-## Optional AI-enhanced mode
+## Diagnostic reports
 
-The Troubleshooting Assistant offers two modes:
+The Reports page and API generate:
 
-- **Deterministic** — default, fully local, and based only on explicit Phase 4 routing.
-- **AI-enhanced (optional)** — keeps the deterministic answer authoritative and adds a labeled plain-language explanation from a configured provider.
+- System health summary
+- Network diagnostics
+- Screenshot-analysis metadata
+- Deterministic assistant summary
+- Full diagnostic bundle
 
-The optional model can request only nine approved read-only tools. It cannot access arbitrary SQL, files, the shell, processes, operating-system settings, network scanning, or repairs. It cannot replace the deterministic direct answer, evidence, timestamps, severity, freshness, or recommendations.
+Formats are CSV, JSON, standalone HTML, and PDF. Report bytes are generated in memory and not stored by default. Conversation history is excluded unless explicitly selected for one Streamlit export.
 
-Provider output is rejected and replaced with the deterministic answer when it is malformed, ungrounded, unsafe, excessive, stale-obscuring, or unavailable.
+API discovery and generation:
 
-### Configuration
+- `GET /api/v1/reports/types`
+- `POST /api/v1/reports/generate`
 
-FixMate AI reads configuration from environment variables. It does not automatically load `.env` files. See `.env.example` for safe placeholders.
-
-The default requires no configuration:
-
-```powershell
-$env:FIXMATE_LLM_PROVIDER="disabled"
-```
-
-Optional HTTPS cloud provider using a chat-completions-compatible endpoint:
-
-```powershell
-$env:FIXMATE_LLM_PROVIDER="cloud"
-$env:FIXMATE_CLOUD_API_URL="https://your-provider.example/v1/chat/completions"
-$env:FIXMATE_CLOUD_MODEL="your-model-name"
-$env:FIXMATE_CLOUD_API_KEY = Read-Host "Enter the provider API key for this shell session"
-$env:FIXMATE_LLM_TIMEOUT_SECONDS="15"
-streamlit run app.py
-```
-
-Cloud mode requires checking the external-data consent box before any question or minimized evidence is sent.
-
-Optional loopback-only Ollama-compatible provider:
-
-```powershell
-$env:FIXMATE_LLM_PROVIDER="ollama"
-$env:FIXMATE_OLLAMA_URL="http://127.0.0.1:11434/api/chat"
-$env:FIXMATE_OLLAMA_MODEL="your-installed-local-model"
-streamlit run app.py
-```
-
-The Ollama-compatible URL must use `localhost`, `127.0.0.1`, or `::1`. Installing, downloading, and running a local model is separate from FixMate AI.
-
-On Ubuntu, use equivalent `export FIXMATE_...="value"` commands before starting Streamlit.
-
-### External privacy and cost
-
-With explicit cloud consent, FixMate AI may send the redacted question, deterministic answer fields, timestamps, metrics, severity, and minimized approved-tool results. It excludes screenshots, OCR text, API keys, usernames identified by redaction, process names in tool output, complete IP/MAC addresses, and sensitive paths.
-
-Redaction is best-effort. Review questions before using a cloud provider. Cloud providers may retain requests or charge per token according to their own policies; FixMate AI cannot control those policies or costs. Local Ollama-compatible inference avoids cloud transmission but uses local CPU, memory, disk, and power.
-
-## Tests
+## Testing and CI
 
 ```bash
-python -m pytest
+python -m pytest -v
 ```
 
-Tests generate images in memory and mock OCR and network operations. They require neither Tesseract nor internet access.
+Tests use generated images, temporary databases, and mocked OCR, network, and provider operations. They require no internet, Tesseract, Ollama, cloud service, or real API key.
 
-## Data and privacy
+[GitHub Actions CI](.github/workflows/ci.yml) runs the complete suite on:
 
-History is stored locally in `data/fixmate.db`, which is ignored by Git. Screenshot files and image bytes are never written to the database or filesystem.
+- Ubuntu latest with Python 3.11 and 3.12
+- Windows latest with Python 3.11 and 3.12
 
-The troubleshooting assistant opens SQLite in read-only mode and creates no conversation table. Evidence is redacted again before display, including likely IP addresses, MAC addresses, email addresses, credentials, usernames contained in paths, and sensitive paths.
+## Privacy and security
 
-Optional providers never receive database handles or direct access to SQLite. A bounded agent executes at most four validated tool requests and two provider calls per question. Screenshot files and OCR text are never included in provider payloads.
+- Local processing and SQLite storage by default
+- No raw screenshot persistence
+- OCR text redacted before storage
+- No conversation table; chat history remains in Streamlit session state
+- No report persistence by default
+- No password, browsing-history, document-content, packet-capture, or port-scan collection
+- Localhost API default, CORS allowlist, body limits, request IDs, structured errors, and rate limits
+- No shell, arbitrary SQL, filesystem, repair, process-control, or unrestricted model tools
+- Secrets loaded from environment variables and excluded from Git/Docker
 
-Before OCR text is stored, FixMate AI redacts likely:
+Read [SECURITY.md](docs/SECURITY.md) and [PRIVACY.md](docs/PRIVACY.md) before adapting the project for other users or networks.
 
-- Passwords, API keys, tokens, and bearer values
-- Email addresses
-- Windows and Linux user-specific paths
+## Known limitations
 
-Redaction is best-effort and cannot guarantee that every personal detail will be recognized. Crop or redact screenshots before upload and avoid screenshots containing secrets. Processing is local, but the editable text remains visible in the current Streamlit session.
+- Metrics are snapshots, not continuous monitoring.
+- Connectivity tests one configured TCP target and is not a complete internet diagnosis.
+- OCR accuracy depends on image quality, fonts, language, and local Tesseract.
+- The curated knowledge base does not cover every Windows or Ubuntu error.
+- Intent matching supports documented categories rather than arbitrary questions.
+- Redaction is best-effort and reports must be reviewed before sharing.
+- Optional model explanations can be inaccurate and remain secondary to deterministic evidence.
+- SQLite and in-memory rate limiting target local/single-process use.
+- Local API token authentication is not sufficient for public internet deployment.
+- Docker measures container resources and networking, not the host.
+- FixMate AI does not perform or claim autonomous repair.
 
-## Missing OCR troubleshooting
+## Future improvements
 
-If the analyzer reports that Tesseract is unavailable:
+- First-class UI selection for marked synthetic demo databases
+- Accessibility and responsive-layout improvements
+- Optional PostgreSQL and shared deployment rate limiting
+- Stronger team authentication, TLS deployment guidance, and audit events
+- Broader knowledge-base provenance and OCR language configuration
+- Docker build validation and coverage reporting in CI
+- Native Windows and Ubuntu packaging
 
-1. Confirm `tesseract --version` works in a new terminal.
-2. Restart Streamlit after installing Tesseract or changing `PATH`.
-3. On Windows, set `TESSERACT_CMD` to the complete executable path.
-4. Continue by entering the error message manually; the rest of the analyzer does not depend on Tesseract.
+See the truthful, non-autonomous [ROADMAP.md](docs/ROADMAP.md).
+
+## Five-minute demo script
+
+1. State that FixMate AI is read-only and the displayed records are synthetic.
+2. Show health score, metrics, history, and a threshold-generated issue.
+3. Run or explain the bounded network diagnostic.
+4. Use typed synthetic error text in the screenshot analyzer.
+5. Ask “What should I fix first?” and point to evidence/timestamps.
+6. Generate a privacy-safe PDF or HTML handover report.
+7. Open Swagger and show token-protected POST routes.
+8. Finish with the cross-platform test matrix and security boundaries.
+
+The expanded walkthrough is in [DEMO.md](docs/DEMO.md).
+
+## CV-ready bullet points
+
+- Built a cross-platform diagnostics platform using Python, Streamlit, FastAPI, SQLite, psutil, OpenCV, Tesseract, Plotly, and ReportLab.
+- Designed deterministic system/network issue detection and evidence-grounded troubleshooting with privacy-safe history and reporting.
+- Implemented optional consent-gated model explanations with strict read-only tool allowlists, payload minimization, validation, and deterministic fallback.
+- Delivered a versioned REST API with Pydantic schemas, token-protected POST routes, request IDs, CORS restrictions, rate limits, and isolated tests.
+- Added non-root Docker Compose deployment and Windows/Ubuntu CI across Python 3.11 and 3.12.
+
+## Interview talking points
+
+- Why deterministic evidence is authoritative and AI is optional
+- How additive migrations preserve earlier phases
+- How one service layer supports both Streamlit and FastAPI
+- Why screenshot/OCR text is untrusted and never executed
+- How provider tools are allowlisted and bounded
+- Why reports are in-memory and filenames are generated
+- Why Docker is useful for deployment but not host diagnostics
+- How temporary databases and mocks keep tests private and offline-safe
+
+See [INTERVIEW_GUIDE.md](docs/INTERVIEW_GUIDE.md) for a 60-second pitch, technical explanation, challenge stories, LinkedIn draft, and common interview answers.
 
 ## Project structure
 
-- `app.py` — Phase 1 and Phase 2 Streamlit dashboard
-- `api/` — Phase 6 FastAPI application, routers, schemas, security, and services
-- `pages/2_Error_Screenshot_Analyzer.py` — Phase 3 analyzer page
-- `pages/3_Troubleshooting_Assistant.py` — Phase 4 deterministic chat page
-- `pages/4_Reports.py` — Phase 7 report selection, preview, and download page
-- `src/report_builder.py` — deterministic read-only evidence assembly
-- `src/report_exporters.py` — in-memory CSV, JSON, HTML, and PDF exporters
-- `src/report_privacy.py` — recursive defense-in-depth report redaction
-- `src/assistant_tools.py` — read-only evidence tools
-- `src/troubleshooting_assistant.py` — intent routing and answer generation
-- `src/safe_agent_tools.py` — strict minimized read-only provider tool allowlist
-- `src/hybrid_agent.py` — bounded explanation orchestration and deterministic fallback
-- `src/llm/` — isolated disabled, cloud, and loopback Ollama providers
-- `.env.example` — credential-free optional configuration template
-- `src/image_processing.py` — validation and OpenCV preprocessing
-- `src/ocr.py` — optional local Tesseract integration
-- `src/error_matcher.py` — deterministic confidence-ranked matching
-- `src/knowledge_base.py` — trusted JSON loader
-- `src/privacy.py` — anonymization and redaction
-- `data/error_knowledge_base.json` — curated local troubleshooting entries
-- `src/database.py` — additive migrations and persistence for all phases
-- `tests/` — simulated, generated, and mocked automated tests
-- `tests/api/` — isolated FastAPI endpoint, security, filtering, and failure tests
+```text
+fixmate-ai/
+├── app.py                         # System and network Streamlit dashboard
+├── pages/                         # Screenshot, assistant, and reports pages
+├── src/                           # Collectors, rules, assistant, privacy, reports
+├── api/                           # FastAPI routers, schemas, services, security
+├── data/error_knowledge_base.json # Curated local troubleshooting knowledge
+├── scripts/generate_demo_data.py  # Safe deterministic synthetic data
+├── tests/                         # Offline-safe unit and integration tests
+├── docs/                          # Architecture, security, demo, interview guides
+├── Dockerfile
+└── docker-compose.yml
+```
 
-## Current limitations
+## Documentation
 
-- OCR accuracy depends on screenshot resolution, font, contrast, language, and Tesseract quality.
-- The knowledge base covers common errors but is not a general diagnostic engine.
-- Confidence is deterministic heuristic evidence, not a statistical probability.
-- Redaction is best-effort; users should remove sensitive information before uploading.
-- Connectivity represents one configured TCP target, and network byte counters are cumulative.
-- Intent detection recognizes supported wording and reliable knowledge-base matches, not arbitrary questions.
-- Recommendations are guidance rather than guaranteed fixes.
-- The assistant cannot infer events that were not captured in a scan or diagnostic.
-- Freshness labels do not make old evidence current; run new diagnostics when conditions change.
-- Optional model explanations can be inaccurate and are always secondary to deterministic evidence.
-- Cloud configuration and pricing depend on the selected compatible provider.
-- Local models require separate installation and may be slow on modest hardware.
-- FixMate AI is not autonomous and never claims to have repaired the computer.
-- The in-memory API rate limiter is process-local; multi-worker deployments need a shared limiter.
-- Local token authentication protects POST routes but is not a replacement for TLS or an internet-facing identity system. The API is designed for localhost use.
-- PDF uses built-in fonts and replaces unsupported characters to avoid broken glyphs.
-- Large evidence histories can produce large base64 API responses; report generation is rate-limited and intended for local use.
-- Redaction is best-effort. Users should preview every report before sharing it with support staff.
-- Container diagnostics reflect container resources and networking, not the Docker host.
-- The slim image intentionally omits Tesseract; screenshot text can still be entered manually.
-- Loopback-only Ollama configuration is intended for native execution, because container loopback refers to the container itself.
+- [Architecture](docs/ARCHITECTURE.md)
+- [Demo guide](docs/DEMO.md)
+- [Docker guide](docs/DOCKER.md)
+- [Security model](docs/SECURITY.md)
+- [Privacy guide](docs/PRIVACY.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Interview guide](docs/INTERVIEW_GUIDE.md)
+- [Phase plans](docs/PHASE9_PLAN.md)
