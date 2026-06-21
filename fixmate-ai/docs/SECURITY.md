@@ -2,6 +2,12 @@
 
 FixMate AI is designed as a localhost-first, read-only diagnostic portfolio application. Its controls reduce risk; they do not turn it into an internet-facing security product.
 
+## Endpoint enrollment and fleet access
+
+Phase 11A separates endpoint ingestion from fleet administration. Agents use `X-Device-Token`; administrator reads retain `X-API-Token`. Tokens are compared in constant time, and enrollment stores only a unique salt plus PBKDF2-HMAC-SHA256 digest. Agent routes have a separate in-memory rate limit. Raw tokens are excluded from database reads, responses, and logs.
+
+The endpoint has no command receiver, shell, repair tool, arbitrary file access, or background daemon. Use high-entropy tokens and localhost or a trusted protected network; rotate credentials after suspected exposure.
+
 ## Trust boundaries
 
 - User questions, OCR text, database strings, knowledge-base text, uploaded image bytes, and provider output are untrusted data.
@@ -52,4 +58,3 @@ Reports are built from read-only evidence and redacted again before export. File
 ## Reporting a concern
 
 For a public repository, use GitHub's private vulnerability reporting feature if enabled. Do not open an issue containing a real token, screenshot, database, path, username, network address, or diagnostic record.
-

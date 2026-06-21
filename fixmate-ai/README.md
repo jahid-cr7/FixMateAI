@@ -45,6 +45,7 @@ The project is deliberately **read-only**. It does not require administrator/roo
 | 8 | Python slim Docker image, separate Compose services, shared volume, Windows/Ubuntu CI matrix |
 | 9 | Safe synthetic demo tooling, vector assets, architecture/security docs, and interview package |
 | 10 | Shared demo database mode, release metadata, screenshot workflow, MIT license, and GitHub community templates |
+| 11A | Privacy-minimized endpoint agent, hashed enrollment, fleet API/history, and multi-device dashboard |
 
 ## Screenshots
 
@@ -181,6 +182,27 @@ python -m api.main
 - Swagger: `http://127.0.0.1:8000/docs`
 
 GET routes are read-only. Protected POST routes require `X-API-Token`; when no token is configured they return a safe 503 rather than operating without authentication. Tokens are loaded only from environment variables and compared in constant time.
+
+## Multi-device endpoint agent
+
+Phase 11A adds an opt-in, one-shot collector for managed Windows or Ubuntu endpoints. It reuses the existing read-only collectors, sends summarized metrics and redacted issue evidence, then exits. It is not a background service and performs no repairs.
+
+Start FastAPI with separate administrator and enrollment tokens:
+
+```powershell
+$env:FIXMATE_API_TOKEN = Read-Host "Private administrator API token"
+$env:FIXMATE_DEVICE_TOKEN = Read-Host "Private device enrollment token"
+python -m api.main
+```
+
+Run one endpoint submission:
+
+```powershell
+$env:FIXMATE_DEVICE_TOKEN = Read-Host "Device enrollment token"
+python -m fixmate_agent --server http://127.0.0.1:8000 --device-name "Lab Endpoint"
+```
+
+Ubuntu uses `export FIXMATE_DEVICE_TOKEN="..."` followed by the same Python command. Preview the privacy-minimized payload without a token or server using `python -m fixmate_agent --dry-run`. See [AGENT.md](docs/AGENT.md) and [FLEET_DASHBOARD.md](docs/FLEET_DASHBOARD.md).
 
 Example:
 

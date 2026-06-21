@@ -15,7 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from api.config import ApiSettings
 from api.middleware import RequestContextMiddleware
 from api.responses import utc_now
-from api.routers import assistant, general, issues, network, reports, screenshot, system
+from api.routers import agent, assistant, devices, general, issues, network, reports, screenshot, system
 from api.schemas.common import ErrorResponse
 from api.security import InMemoryRateLimiter
 from src.database import initialize_database
@@ -87,7 +87,12 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         allow_origins=list(configured.allowed_origins),
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "X-API-Token", "X-Request-ID"],
+        allow_headers=[
+            "Content-Type",
+            "X-API-Token",
+            "X-Device-Token",
+            "X-Request-ID",
+        ],
     )
 
     @application.exception_handler(StarletteHTTPException)
@@ -129,6 +134,8 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
     application.include_router(screenshot.router)
     application.include_router(assistant.router)
     application.include_router(reports.router)
+    application.include_router(devices.router)
+    application.include_router(agent.router)
     return application
 
 

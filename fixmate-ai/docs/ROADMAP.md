@@ -2,6 +2,14 @@
 
 FixMate AI currently provides read-only diagnostics, deterministic troubleshooting, optional bounded explanation, reporting, FastAPI, Docker, and cross-platform CI. The roadmap deliberately avoids claiming autonomous repair.
 
+## Phase 11A — complete
+
+- One-shot privacy-minimized endpoint collector
+- Hashed device enrollment, heartbeat and scan-batch persistence
+- Authenticated ingestion/admin APIs and Streamlit fleet dashboard
+
+Fleet-aware report exports and a formal credential-rotation workflow remain candidate follow-ups.
+
 ## Near-term
 
 - Add a first-class Streamlit database selector for marked synthetic demo databases.
@@ -33,4 +41,3 @@ FixMate AI currently provides read-only diagnostics, deterministic troubleshooti
 - Arbitrary shell or SQL access
 - Packet capture, port scanning, or malware detection claims
 - Public internet deployment without additional security architecture
-

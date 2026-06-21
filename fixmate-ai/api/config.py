@@ -50,7 +50,10 @@ class ApiSettings:
     diagnostic_rate_limit: int = 5
     assistant_rate_limit: int = 20
     report_rate_limit: int = 10
+    agent_rate_limit: int = 60
     rate_window_seconds: int = 60
+    fleet_online_minutes: int = 5
+    device_enrollment_token: str = ""
     host: str = "127.0.0.1"
     port: int = 8000
 
@@ -80,9 +83,16 @@ class ApiSettings:
             report_rate_limit=_positive_int(
                 os.environ.get("FIXMATE_API_REPORT_RATE_LIMIT"), 10, 1000
             ),
+            agent_rate_limit=_positive_int(
+                os.environ.get("FIXMATE_API_AGENT_RATE_LIMIT"), 60, 5000
+            ),
             rate_window_seconds=_positive_int(
                 os.environ.get("FIXMATE_API_RATE_WINDOW_SECONDS"), 60, 3600
             ),
+            fleet_online_minutes=_positive_int(
+                os.environ.get("FIXMATE_FLEET_ONLINE_MINUTES"), 5, 1440
+            ),
+            device_enrollment_token=os.environ.get("FIXMATE_DEVICE_TOKEN", ""),
             host=host,
             port=_positive_int(os.environ.get("FIXMATE_API_PORT"), 8000, 65535),
         )

@@ -13,6 +13,7 @@ python -m pip install -r requirements.txt
 python -m pytest
 python -m streamlit run app.py
 python -m api.main
+python -m fixmate_agent --dry-run
 python scripts/generate_demo_data.py --output data/demo_fixmate.db --seed 2026 --days 14
 docker compose config
 docker compose build
@@ -82,6 +83,10 @@ docker compose up
 - Keep `src.__version__`, FastAPI metadata, README, changelog, and release tags aligned.
 - Public screenshots require synthetic data and the complete `docs/SCREENSHOTS.md` privacy review.
 - Community templates must never request private diagnostics, real screenshots, databases, logs, or secrets.
+- Endpoint agents remain one-shot, user-invoked, read-only processes; never add persistence, remote commands, repairs, or unrestricted collection.
+- Agent payloads may contain summarized health/network metrics and redacted issue evidence, but never process/interface names, hostnames, addresses, screenshots, file contents, or raw tokens.
+- Authenticate enrollment with `X-Device-Token`, persist only salted token hashes, and retain `X-API-Token` for fleet administration.
+- Device status is deterministic from heartbeat age: recent is online, expired is offline, and absent/invalid is unknown.
 
 ## Before submitting changes
 

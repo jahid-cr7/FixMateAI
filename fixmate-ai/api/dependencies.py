@@ -13,6 +13,7 @@ from api.services.assistant_service import AssistantService
 from api.services.data_service import DataService
 from api.services.diagnostic_service import DiagnosticService
 from api.services.report_service import ReportService
+from api.services.device_service import DeviceService
 
 
 def get_settings(request: Request) -> ApiSettings:
@@ -49,6 +50,13 @@ def get_report_service(
     return ReportService(settings.database_path)
 
 
+def get_device_service(
+    settings: Annotated[ApiSettings, Depends(get_settings)],
+) -> DeviceService:
+    """Create a request-scoped fleet service for the configured database."""
+    return DeviceService(settings.database_path, settings.fleet_online_minutes)
+
+
 def require_api_token(
     settings: Annotated[ApiSettings, Depends(get_settings)],
     supplied_token: Annotated[str | None, Header(alias="X-API-Token")] = None,
@@ -62,6 +70,26 @@ def require_api_token(
         )
     if supplied_token is None or not token_matches(settings.api_token, supplied_token):
         raise api_error(401, "invalid_api_token", "A valid X-API-Token header is required.")
+
+
+def require_device_enrollment_token(
+    settings: Annotated[ApiSettings, Depends(get_settings)],
+    supplied_token: Annotated[str | None, Header(alias="X-Device-Token")] = None,
+) -> str:
+    """Authenticate registration using the configured local enrollment token."""
+    if not settings.device_enrollment_token:
+        raise api_error(
+            503,
+            "device_token_not_configured",
+            "Agent registration is disabled until FIXMATE_DEVICE_TOKEN is configured.",
+        )
+    if supplied_token is None or not token_matches(
+        settings.device_enrollment_token, supplied_token
+    ):
+        raise api_error(
+            401, "invalid_device_token", "A valid X-Device-Token header is required."
+        )
+    return supplied_token
 
 
 def _rate_limit(request: Request, category: str, limit: int, settings: ApiSettings) -> None:
@@ -100,3 +128,11 @@ def enforce_report_rate_limit(
 ) -> None:
     """Rate-limit potentially expensive report generation independently."""
     _rate_limit(request, "report", settings.report_rate_limit, settings)
+
+
+def enforce_agent_rate_limit(
+    request: Request,
+    settings: Annotated[ApiSettings, Depends(get_settings)],
+) -> None:
+    """Rate-limit registration, heartbeat, and scan uploads independently."""
+    _rate_limit(request, "agent", settings.agent_rate_limit, settings)

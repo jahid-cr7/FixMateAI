@@ -2,6 +2,14 @@
 
 All notable changes to FixMate AI are documented here. The format is inspired by Keep a Changelog, and releases follow semantic versioning.
 
+## Unreleased
+
+### Added
+
+- Phase 11A one-shot endpoint agent and dry-run payload preview
+- Non-destructive device, heartbeat, and scan-batch migrations
+- Hashed endpoint enrollment, fleet APIs, and Device Fleet Streamlit page
+
 ## [1.0.0] - 2026-06-21
 
 ### Added
@@ -30,4 +38,3 @@ All notable changes to FixMate AI are documented here. The format is inspired by
 - Docker diagnostics describe containers rather than the host.
 - Local API token authentication is not sufficient for public internet deployment.
 - FixMate AI does not perform autonomous repair.
-

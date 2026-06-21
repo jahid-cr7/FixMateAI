@@ -26,6 +26,7 @@ DEFAULT_DB_PATH = configured_database_path()
 PHASE_1_MIGRATION = "phase1_system_health"
 PHASE_2_MIGRATION = "phase2_network_diagnostics"
 PHASE_3_MIGRATION = "phase3_screenshot_analyzer"
+PHASE_11A_MIGRATION = "phase11a_multi_device_foundation"
 
 
 def connect(database_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
@@ -100,6 +101,13 @@ def initialize_database(database_path: Path = DEFAULT_DB_PATH) -> None:
         ).fetchone()
         if phase_3_applied is None:
             _apply_phase_3_migration(connection)
+
+        phase_11a_applied = connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE migration_id = ?",
+            (PHASE_11A_MIGRATION,),
+        ).fetchone()
+        if phase_11a_applied is None:
+            _apply_phase_11a_migration(connection)
 
 
 def _apply_phase_2_migration(connection: sqlite3.Connection) -> None:
@@ -182,6 +190,59 @@ def _apply_phase_3_migration(connection: sqlite3.Connection) -> None:
     connection.execute(
         "INSERT INTO schema_migrations (migration_id) VALUES (?)",
         (PHASE_3_MIGRATION,),
+    )
+
+
+def _apply_phase_11a_migration(connection: sqlite3.Connection) -> None:
+    """Add fleet tables without altering existing single-device records."""
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS devices (
+            device_id TEXT PRIMARY KEY,
+            display_name TEXT NOT NULL,
+            operating_system TEXT NOT NULL,
+            platform TEXT NOT NULL,
+            agent_version TEXT NOT NULL,
+            first_seen_at TEXT NOT NULL,
+            last_seen_at TEXT NOT NULL,
+            status TEXT NOT NULL,
+            notes TEXT NOT NULL DEFAULT '',
+            token_salt TEXT NOT NULL,
+            token_hash TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS device_heartbeats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            status TEXT NOT NULL,
+            agent_version TEXT NOT NULL,
+            FOREIGN KEY (device_id) REFERENCES devices(device_id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS device_scan_batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            payload_summary TEXT NOT NULL,
+            health_score INTEGER NOT NULL,
+            highest_severity TEXT,
+            issue_count INTEGER NOT NULL,
+            FOREIGN KEY (device_id) REFERENCES devices(device_id) ON DELETE CASCADE,
+            CHECK (health_score >= 0 AND health_score <= 100),
+            CHECK (issue_count >= 0)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_device_heartbeats_device_timestamp
+        ON device_heartbeats(device_id, timestamp DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_device_scan_batches_device_timestamp
+        ON device_scan_batches(device_id, timestamp DESC);
+        """
+    )
+    connection.execute(
+        "INSERT INTO schema_migrations (migration_id) VALUES (?)",
+        (PHASE_11A_MIGRATION,),
     )
 
 

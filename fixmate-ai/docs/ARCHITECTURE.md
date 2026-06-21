@@ -7,6 +7,8 @@ FixMate AI is a local-first, read-only diagnostic application. Collection, deter
 ```mermaid
 flowchart LR
     OS["Windows or Ubuntu"] --> C["psutil collectors"]
+    Remote["Managed endpoint"] --> Agent["One-shot endpoint agent"]
+    Agent -->|"minimized authenticated batch"| API
     C --> D["Deterministic detectors"]
     D --> DB[("SQLite history")]
     DB --> UI["Streamlit pages"]
@@ -99,6 +101,8 @@ erDiagram
 
 Migrations are additive and preserve Phase 1–3 records. Assistant conversations and generated reports have no database tables.
 
+Phase 11A adds `devices`, `device_heartbeats`, and `device_scan_batches`. Device rows store a per-device salt and PBKDF2 token digest, never the raw enrollment token. Batches contain only summarized metrics and redacted issue evidence.
+
 ## Assistant safety model
 
 ```mermaid
@@ -151,4 +155,3 @@ flowchart LR
 ```
 
 Both services reuse one non-root Python 3.12 slim image. Container diagnostics describe container resources and networking, so native execution is required for actual host diagnostics.
-

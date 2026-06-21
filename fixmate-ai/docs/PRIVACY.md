@@ -2,6 +2,10 @@
 
 FixMate AI processes diagnostic evidence locally by default. This document describes what it collects, what it deliberately excludes, and the limits of automated redaction.
 
+## Managed endpoint payloads
+
+The one-shot endpoint agent sends opaque identity metadata, summarized CPU/memory/disk/network values, health score, interface count, and redacted issue evidence. It omits hostname, process/interface names, addresses, screenshots, OCR text, browsing history, file contents, credentials, and raw tokens. Fleet records remain in the configured SQLite database.
+
 ## Collected locally
 
 - CPU, memory, and disk percentages
@@ -42,4 +46,3 @@ The provider may have independent retention, training, location, and billing pol
 ## Demo data
 
 The portfolio generator creates only marked synthetic data. `.invalid` hostnames are reserved for examples and do not represent real systems. Generated databases are ignored by Git and should be deleted when no longer required.
-
