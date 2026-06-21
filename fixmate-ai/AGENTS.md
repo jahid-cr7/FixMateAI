@@ -78,6 +78,10 @@ docker compose up
 - Portfolio assets must use synthetic values and must be labeled as mockups rather than live proof.
 - Keep README, architecture, privacy, security, demo, roadmap, and interview claims aligned with implemented behavior.
 - Never describe FixMate AI as autonomous or claim that it executed a repair.
+- `FIXMATE_DB_PATH` is the shared Streamlit/FastAPI startup override; leave it unset for the normal database.
+- Keep `src.__version__`, FastAPI metadata, README, changelog, and release tags aligned.
+- Public screenshots require synthetic data and the complete `docs/SCREENSHOTS.md` privacy review.
+- Community templates must never request private diagnostics, real screenshots, databases, logs, or secrets.
 
 ## Before submitting changes
 
@@ -96,3 +100,4 @@ docker compose up
 13. Confirm native commands still bind FastAPI to `127.0.0.1` by default.
 14. Run demo-generator safety tests and confirm generated demo databases remain ignored.
 15. Verify every local README link and synthetic asset exists before publishing.
+16. Complete `docs/RELEASE_CHECKLIST.md` before creating a tag or GitHub release.

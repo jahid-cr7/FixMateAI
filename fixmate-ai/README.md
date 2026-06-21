@@ -3,13 +3,15 @@
 ### Local-first system diagnostics, evidence-based troubleshooting, and privacy-safe support reports for Windows and Ubuntu
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-1.0.0-153A64)](docs/CHANGELOG.md)
 [![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Docker](https://img.shields.io/badge/Deployment-Docker-2496ED?logo=docker&logoColor=white)](docs/DOCKER.md)
-[![CI](https://img.shields.io/badge/CI-Windows%20%7C%20Ubuntu-2088FF?logo=githubactions&logoColor=white)](.github/workflows/ci.yml)
+[![CI](https://github.com/jahid-cr7/FixMateAI/actions/workflows/ci.yml/badge.svg)](https://github.com/jahid-cr7/FixMateAI/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/Tests-pytest-0A9EDC?logo=pytest&logoColor=white)](tests/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-FixMate AI is a portfolio-scale IT support application that collects system and network evidence, detects explicit problems, stores local history, analyzes error screenshots with local OCR, answers supported troubleshooting questions, and exports professional diagnostic reports.
+FixMate AI v1.0.0 is a portfolio-scale IT support application that collects system and network evidence, detects explicit problems, stores local history, analyzes error screenshots with local OCR, answers supported troubleshooting questions, and exports professional diagnostic reports.
 
 The project is deliberately **read-only**. It does not require administrator/root privileges, execute repairs, terminate processes, change settings, scan ports, capture packets, inspect browsing history, or read personal file contents. Deterministic evidence remains authoritative; optional AI can add a labeled explanation but cannot replace facts or access unrestricted tools.
 
@@ -42,6 +44,7 @@ The project is deliberately **read-only**. It does not require administrator/roo
 | 7 | Privacy-safe system, network, screenshot, assistant, and full reports in CSV/JSON/HTML/PDF |
 | 8 | Python slim Docker image, separate Compose services, shared volume, Windows/Ubuntu CI matrix |
 | 9 | Safe synthetic demo tooling, vector assets, architecture/security docs, and interview package |
+| 10 | Shared demo database mode, release metadata, screenshot workflow, MIT license, and GitHub community templates |
 
 ## Screenshots
 
@@ -65,7 +68,7 @@ The project is deliberately **read-only**. It does not require administrator/roo
 
 ![Synthetic FastAPI Swagger page](docs/assets/swagger.svg)
 
-See the [demo guide](docs/DEMO.md) for safe screenshot capture instructions.
+See the [safe screenshot workflow](docs/SCREENSHOTS.md) before replacing these SVG mockups with reviewed real application captures.
 
 ## Architecture
 
@@ -109,8 +112,8 @@ Native execution is the recommended mode for diagnosing the actual computer. Doc
 ### Windows PowerShell
 
 ```powershell
-git clone <your-repository-url>
-cd fixmate-ai
+git clone https://github.com/jahid-cr7/FixMateAI.git
+cd .\FixMateAI\fixmate-ai
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -123,8 +126,8 @@ If PowerShell blocks activation, use an appropriate local execution policy or ca
 ### Ubuntu
 
 ```bash
-git clone <your-repository-url>
-cd fixmate-ai
+git clone https://github.com/jahid-cr7/FixMateAI.git
+cd FixMateAI/fixmate-ai
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -223,6 +226,15 @@ python scripts/generate_demo_data.py --output data/demo_fixmate.db --seed 2026 -
 
 The generator refuses the normal `data/fixmate.db`, refuses existing outputs by default, and never replaces an unmarked database. It uses explicit synthetic labels and reserved `.invalid` hostnames. Generated databases are ignored by Git. See [DEMO.md](docs/DEMO.md).
 
+Run Streamlit and FastAPI against the marked demo database by setting the shared startup override before launching either process:
+
+```powershell
+$env:FIXMATE_DB_PATH="data/demo_fixmate.db"
+python -m streamlit run app.py
+```
+
+Ubuntu uses `export FIXMATE_DB_PATH="data/demo_fixmate.db"`. Leave the variable unset for the normal `data/fixmate.db` default. Set only trusted local SQLite paths and restart the application after changing it.
+
 ## Troubleshooting assistant
 
 Supported deterministic question categories include:
@@ -266,7 +278,7 @@ python -m pytest -v
 
 Tests use generated images, temporary databases, and mocked OCR, network, and provider operations. They require no internet, Tesseract, Ollama, cloud service, or real API key.
 
-[GitHub Actions CI](.github/workflows/ci.yml) runs the complete suite on:
+[GitHub Actions CI](../.github/workflows/ci.yml) runs the complete suite on:
 
 - Ubuntu latest with Python 3.11 and 3.12
 - Windows latest with Python 3.11 and 3.12
@@ -365,9 +377,15 @@ fixmate-ai/
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Demo guide](docs/DEMO.md)
+- [Safe screenshot workflow](docs/SCREENSHOTS.md)
 - [Docker guide](docs/DOCKER.md)
 - [Security model](docs/SECURITY.md)
 - [Privacy guide](docs/PRIVACY.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Interview guide](docs/INTERVIEW_GUIDE.md)
-- [Phase plans](docs/PHASE9_PLAN.md)
+- [GitHub setup](docs/GITHUB_SETUP.md)
+- [Release checklist](docs/RELEASE_CHECKLIST.md)
+- [Changelog](docs/CHANGELOG.md)
+- [Contributing](../CONTRIBUTING.md)
+- [MIT License](../LICENSE)
+- [Latest phase plan](docs/PHASE10_PLAN.md)

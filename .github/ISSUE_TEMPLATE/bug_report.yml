@@ -1,0 +1,49 @@
+name: Bug report
+description: Report reproducible behavior using synthetic, privacy-safe details.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach real screenshots, databases, logs, usernames, paths, IP/MAC addresses, tokens, or personal diagnostic data.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [Windows, Ubuntu, Docker, Other]
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.11 or 3.12"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Synthetic reproduction steps
+      description: Use only generated or anonymized values.
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Relevant test output
+      description: Paste only output that you have reviewed for private information.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy confirmation
+      options:
+        - label: I removed secrets, personal data, real addresses, private paths, screenshots, databases, and logs.
+          required: true

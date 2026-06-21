@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = PROJECT_ROOT.parent
 
 
 def _read(relative_path: str) -> str:
@@ -51,7 +52,9 @@ def test_dockerignore_excludes_private_and_generated_content() -> None:
 
 
 def test_ci_matrix_covers_windows_ubuntu_and_supported_python() -> None:
-    workflow = _read(".github/workflows/ci.yml")
+    workflow = (REPOSITORY_ROOT / ".github/workflows/ci.yml").read_text(
+        encoding="utf-8"
+    )
     assert "pull_request:" in workflow
     assert "branches: [main]" in workflow
     assert "ubuntu-latest" in workflow
@@ -59,3 +62,5 @@ def test_ci_matrix_covers_windows_ubuntu_and_supported_python() -> None:
     assert 'python-version: ["3.11", "3.12"]' in workflow
     assert "python -m pytest -v" in workflow
     assert "cache: pip" in workflow
+    assert "working-directory: fixmate-ai" in workflow
+    assert "cache-dependency-path: fixmate-ai/requirements.txt" in workflow

@@ -24,6 +24,10 @@ jobs:
       FIXMATE_API_TOKEN: ""
       PYTHONDONTWRITEBYTECODE: "1"
 
+    defaults:
+      run:
+        working-directory: fixmate-ai
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -33,7 +37,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: fixmate-ai/requirements.txt
 
       - name: Install dependencies
         run: |

@@ -19,6 +19,7 @@ from api.routers import assistant, general, issues, network, reports, screenshot
 from api.schemas.common import ErrorResponse
 from api.security import InMemoryRateLimiter
 from src.database import initialize_database
+from src import __version__
 
 
 def _request_id(request: Request) -> str:
@@ -63,7 +64,7 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
             "A localhost-first REST API over FixMate AI's existing system, network, "
             "issue, screenshot-analysis, and deterministic assistant services."
         ),
-        version="1.0.0",
+        version=__version__,
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",

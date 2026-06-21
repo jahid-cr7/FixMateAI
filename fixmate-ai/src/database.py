@@ -3,12 +3,26 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "fixmate.db"
+BUILTIN_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "fixmate.db"
+
+
+def configured_database_path(environment: Mapping[str, str] | None = None) -> Path:
+    """Resolve an optional startup database override without changing the default."""
+    source = os.environ if environment is None else environment
+    configured = (
+        source.get("FIXMATE_DB_PATH", "").strip()
+        or source.get("FIXMATE_DATABASE_PATH", "").strip()
+    )
+    return Path(configured).expanduser() if configured else BUILTIN_DB_PATH
+
+
+DEFAULT_DB_PATH = configured_database_path()
 PHASE_1_MIGRATION = "phase1_system_health"
 PHASE_2_MIGRATION = "phase2_network_diagnostics"
 PHASE_3_MIGRATION = "phase3_screenshot_analyzer"

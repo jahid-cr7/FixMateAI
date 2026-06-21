@@ -1,0 +1,21 @@
+# Repository-root safety net; the application also has scoped ignore rules.
+.env
+.env.*
+!.env.example
+
+**/.venv/
+**/venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+*.py[cod]
+
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.log
+
+**/reports/
+**/output/reports/

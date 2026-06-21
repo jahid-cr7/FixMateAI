@@ -57,7 +57,10 @@ class ApiSettings:
     @classmethod
     def from_environment(cls) -> "ApiSettings":
         """Load configuration from environment variables without dotenv side effects."""
-        database = os.environ.get("FIXMATE_DATABASE_PATH", "").strip()
+        database = (
+            os.environ.get("FIXMATE_DB_PATH", "").strip()
+            or os.environ.get("FIXMATE_DATABASE_PATH", "").strip()
+        )
         host = os.environ.get("FIXMATE_API_HOST", "127.0.0.1").strip()
         if host not in ALLOWED_API_HOSTS:
             host = "127.0.0.1"

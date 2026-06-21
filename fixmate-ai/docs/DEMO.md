@@ -29,29 +29,25 @@ Regenerate a known demo database:
 python scripts/generate_demo_data.py --output data/demo_fixmate.db --seed 2026 --days 14 --reset-demo
 ```
 
-## Run the UI against demo data
+## Run the application against demo data
 
-FixMate AI reads the database path from `FIXMATE_DATABASE_PATH` in FastAPI. The Streamlit pages currently use the standard local database path, so the safest portfolio demo flow is to preserve any normal database and temporarily copy the generated demo only when you control the workspace.
-
-Recommended isolated API demo:
+Set the shared `FIXMATE_DB_PATH` override before application startup. It works for both Streamlit and FastAPI and leaves the normal `data/fixmate.db` untouched.
 
 PowerShell:
 
 ```powershell
-$env:FIXMATE_DATABASE_PATH="data/demo_fixmate.db"
-$env:FIXMATE_API_TOKEN = Read-Host "Enter a temporary local API token"
-python -m api.main
+$env:FIXMATE_DB_PATH="data/demo_fixmate.db"
+python -m streamlit run app.py
 ```
 
 Ubuntu:
 
 ```bash
-export FIXMATE_DATABASE_PATH="data/demo_fixmate.db"
-export FIXMATE_API_TOKEN="replace-with-a-temporary-local-token"
-python -m api.main
+export FIXMATE_DB_PATH="data/demo_fixmate.db"
+python -m streamlit run app.py
 ```
 
-Open `http://127.0.0.1:8000/docs` and inspect the latest, history, issue, assistant, and report endpoints. Do not commit the generated database.
+For FastAPI, keep the same variable set, configure a temporary `FIXMATE_API_TOKEN`, and run `python -m api.main`. Restart processes after changing database variables. Do not commit the generated database.
 
 ## Suggested five-minute demonstration
 
@@ -66,11 +62,10 @@ Open `http://127.0.0.1:8000/docs` and inspect the latest, history, issue, assist
 
 ## Capture your own portfolio screenshots
 
-The SVG files in `docs/assets/` are safe mockups, not proof of live execution. For real screenshots:
+The SVG files in `docs/assets/` are safe mockups, not proof of live execution. Follow [SCREENSHOTS.md](SCREENSHOTS.md) for real screenshots.
 
 1. Generate or prepare only synthetic data.
 2. Check the screen for usernames, paths, IP addresses, browser tabs, notifications, and tokens.
 3. Capture only the application window.
 4. Crop and inspect the image before adding it to Git.
 5. Label it as synthetic demo data in the caption.
-

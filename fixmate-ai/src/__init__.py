@@ -1,2 +1,3 @@
-"""Core modules for the FixMate AI system-health application."""
+"""Core modules and release metadata for FixMate AI."""
 
+__version__ = "1.0.0"
