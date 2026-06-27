@@ -179,6 +179,8 @@ class FleetStore:
             )
             connection.commit()
             batch_id = int(cursor.lastrowid)
+        if issues:
+            self.record_fleet_issues(safe["device_id"], batch_id, issues)
         return {
             "id": batch_id,
             "device_id": safe["device_id"],
@@ -327,3 +329,139 @@ class FleetStore:
         except (json.JSONDecodeError, TypeError):
             item["payload_summary"] = {}
         return _redact(item)
+
+    def record_fleet_issues(
+        self, device_id: str, batch_id: int, issues: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Insert detected issues from a scan batch; each starts as open."""
+        now = datetime.now(timezone.utc).isoformat()
+        results: list[dict[str, Any]] = []
+        with closing(connect(self.database_path)) as connection:
+            for issue in issues:
+                safe = _redact(issue)
+                cursor = connection.execute(
+                    """
+                    INSERT INTO fleet_issues (
+                        device_id, batch_id, source, code, severity,
+                        evidence, explanation, recommendation,
+                        status, technician_note, detected_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', '', ?, ?)
+                    """,
+                    (
+                        device_id,
+                        batch_id,
+                        safe.get("source", ""),
+                        safe.get("code", ""),
+                        safe.get("severity", ""),
+                        safe.get("evidence", ""),
+                        safe.get("explanation", ""),
+                        safe.get("recommendation", ""),
+                        safe.get("detected_at") or now,
+                        now,
+                    ),
+                )
+                results.append(
+                    {
+                        "id": int(cursor.lastrowid),
+                        "device_id": device_id,
+                        "batch_id": batch_id,
+                        "source": safe.get("source", ""),
+                        "code": safe.get("code", ""),
+                        "severity": safe.get("severity", ""),
+                        "evidence": safe.get("evidence", ""),
+                        "explanation": safe.get("explanation", ""),
+                        "recommendation": safe.get("recommendation", ""),
+                        "status": "open",
+                        "technician_note": "",
+                        "detected_at": safe.get("detected_at") or now,
+                        "acknowledged_at": None,
+                        "resolved_at": None,
+                        "updated_at": now,
+                    }
+                )
+            connection.commit()
+        return _redact(results)
+
+    def list_fleet_issues(
+        self,
+        device_id: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Return privacy-safe fleet issues with optional filters."""
+        safe_limit = max(1, min(int(limit), 200))
+        clauses: list[str] = []
+        params: list[Any] = []
+        if device_id:
+            clauses.append("device_id = ?")
+            params.append(device_id)
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        with closing(connect(self.database_path)) as connection:
+            rows = connection.execute(
+                f"""
+                SELECT id, device_id, batch_id, source, code, severity,
+                       evidence, explanation, recommendation,
+                       status, technician_note,
+                       detected_at, acknowledged_at, resolved_at, updated_at
+                FROM fleet_issues{where}
+                ORDER BY id DESC LIMIT ?
+                """,
+                (*params, safe_limit),
+            ).fetchall()
+        return [_redact(dict(row)) for row in rows]
+
+    def update_fleet_issue(
+        self,
+        issue_id: int,
+        status: str,
+        technician_note: str = "",
+    ) -> dict[str, Any] | None:
+        """Transition a fleet issue and record timestamps."""
+        now = datetime.now(timezone.utc).isoformat()
+        note_clause = "technician_note = ?" if technician_note else "technician_note = technician_note"
+        timestamp_map: dict[str, str] = {
+            "acknowledged": "acknowledged_at = ?",
+            "in_progress": "acknowledged_at = COALESCE(acknowledged_at, ?)",
+            "resolved": "resolved_at = ?, acknowledged_at = COALESCE(acknowledged_at, ?)",
+            "false_positive": "resolved_at = ?, acknowledged_at = COALESCE(acknowledged_at, ?)",
+        }
+        ts_clause = timestamp_map.get(status, "")
+        if not ts_clause:
+            return None
+        sets = [f"status = ?", ts_clause, f"updated_at = ?", note_clause]
+        params_list: list[Any] = [status]
+        if status == "acknowledged":
+            params_list.extend([now, now])
+        elif status in ("in_progress",):
+            params_list.extend([now, now])
+        elif status in ("resolved", "false_positive"):
+            params_list.extend([now, now, now])
+        if technician_note:
+            params_list.append(technician_note)
+        params_list.append(issue_id)
+        with closing(connect(self.database_path)) as connection:
+            cursor = connection.execute(
+                f"UPDATE fleet_issues SET {', '.join(sets)} WHERE id = ? AND status != ?",
+                (*params_list, status),
+            )
+            if cursor.rowcount == 0:
+                row = connection.execute(
+                    "SELECT status FROM fleet_issues WHERE id = ?", (issue_id,)
+                ).fetchone()
+                if row is None:
+                    return None
+            connection.commit()
+            row = connection.execute(
+                """
+                SELECT id, device_id, batch_id, source, code, severity,
+                       evidence, explanation, recommendation,
+                       status, technician_note,
+                       detected_at, acknowledged_at, resolved_at, updated_at
+                FROM fleet_issues WHERE id = ?
+                """,
+                (issue_id,),
+            ).fetchone()
+        return _redact(dict(row)) if row else None

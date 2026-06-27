@@ -118,3 +118,25 @@ class DeviceScanBatch(BaseModel):
     health_score: int
     highest_severity: str | None = None
     issue_count: int
+
+
+class FleetIssueRecord(BaseModel):
+    id: int
+    device_id: str
+    batch_id: int
+    source: str
+    code: str
+    severity: str
+    evidence: str
+    explanation: str
+    recommendation: str
+    status: str
+    technician_note: str
+    detected_at: datetime
+    acknowledged_at: datetime | None = None
+    resolved_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class FleetIssueUpdateRequest(BaseModel):
+    technician_note: str = Field(default="", max_length=2000)

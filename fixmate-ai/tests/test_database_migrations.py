@@ -79,8 +79,8 @@ def test_phase_2_migration_preserves_legacy_records(tmp_path: Path) -> None:
         migrations = connection.execute(
             "SELECT COUNT(*) FROM schema_migrations"
         ).fetchone()[0]
-        # Phase 11A adds one more named, additive migration after Phases 1–3.
-        assert migrations == 4
+        # Phase 11A and 12B each add one named, additive migration after Phases 1–3.
+        assert migrations == 5
 
 
 def test_network_diagnostic_round_trip(tmp_path: Path) -> None:

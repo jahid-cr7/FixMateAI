@@ -95,6 +95,8 @@ docker compose up
 - Offline queue entries must use internally generated filenames, allowlisted agent endpoints, redacted payloads, atomic writes, and fixed file/count limits. Never persist request headers or device tokens.
 - Corrupted or unsafe queue entries must not be uploaded or automatically deleted; successful uploads are the only entries removed.
 - Scheduled agent mode must support bounded intervals, `--max-iterations` for tests/demos, heartbeat-only cycles, clean `Ctrl+C`, and no real waiting in automated tests.
+- Fleet issues detected from scan uploads start as `open` and transition through `acknowledged`, `in_progress`, `resolved`, or `false_positive`. Each transition records timestamps and an optional technician note. Issues never auto-close.
+- Fleet issue API endpoints require `X-API-Token` authentication and never return credential material.
 
 ## Before submitting changes
 

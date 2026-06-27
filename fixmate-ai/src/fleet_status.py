@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 RISK_SEVERITIES = {"high", "critical"}
+ISSUE_STATUSES = {"open", "acknowledged", "in_progress", "resolved", "false_positive"}
 
 
 def parse_utc(value: str | datetime | None) -> datetime | None:

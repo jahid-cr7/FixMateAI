@@ -45,6 +45,10 @@ Deterministic mode is the default source of truth. Optional providers receive on
 
 Provider credentials are read from environment variables. Tencent TokenHub uses `TENCENT_TOKENHUB_API_KEY`, `TENCENT_TOKENHUB_BASE_URL`, and `TENCENT_TOKENHUB_MODEL`; real values must never be hardcoded, logged, displayed, or committed. `.env`, logs, databases, reports, virtual environments, and caches are ignored by Git and excluded from Docker images.
 
+## Fleet issue workflow safety
+
+Fleet issues are created from scan uploads and start as `open`. Transitions to `acknowledged`, `in_progress`, `resolved`, or `false_positive` are recorded with timestamps and optional technician notes. API endpoints for issue management require `X-API-Token` authentication and rate limiting. Responses never include token digests, queue paths, or credential material. Issues never auto-close; a human must explicitly resolve or dismiss each one.
+
 ## Reports
 
 Reports are built from read-only evidence and redacted again before export. Filenames come from enums and UTC timestamps. The API accepts no output path. CSV, JSON, HTML, and PDF bytes are generated in memory and are not stored by default.

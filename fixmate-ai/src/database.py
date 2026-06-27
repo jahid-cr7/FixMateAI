@@ -27,6 +27,7 @@ PHASE_1_MIGRATION = "phase1_system_health"
 PHASE_2_MIGRATION = "phase2_network_diagnostics"
 PHASE_3_MIGRATION = "phase3_screenshot_analyzer"
 PHASE_11A_MIGRATION = "phase11a_multi_device_foundation"
+PHASE_12B_MIGRATION = "phase12b_fleet_issue_workflow"
 
 
 def connect(database_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
@@ -108,6 +109,13 @@ def initialize_database(database_path: Path = DEFAULT_DB_PATH) -> None:
         ).fetchone()
         if phase_11a_applied is None:
             _apply_phase_11a_migration(connection)
+
+        phase_12b_applied = connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE migration_id = ?",
+            (PHASE_12B_MIGRATION,),
+        ).fetchone()
+        if phase_12b_applied is None:
+            _apply_phase_12b_migration(connection)
 
 
 def _apply_phase_2_migration(connection: sqlite3.Connection) -> None:
@@ -243,6 +251,44 @@ def _apply_phase_11a_migration(connection: sqlite3.Connection) -> None:
     connection.execute(
         "INSERT INTO schema_migrations (migration_id) VALUES (?)",
         (PHASE_11A_MIGRATION,),
+    )
+
+
+def _apply_phase_12b_migration(connection: sqlite3.Connection) -> None:
+    """Add fleet issue workflow table without altering existing records."""
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS fleet_issues (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL,
+            batch_id INTEGER NOT NULL,
+            source TEXT NOT NULL,
+            code TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            evidence TEXT NOT NULL DEFAULT '',
+            explanation TEXT NOT NULL DEFAULT '',
+            recommendation TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'open'
+                CHECK (status IN ('open','acknowledged','in_progress','resolved','false_positive')),
+            technician_note TEXT NOT NULL DEFAULT '',
+            detected_at TEXT NOT NULL,
+            acknowledged_at TEXT,
+            resolved_at TEXT,
+            updated_at TEXT,
+            FOREIGN KEY (device_id) REFERENCES devices(device_id) ON DELETE CASCADE,
+            FOREIGN KEY (batch_id) REFERENCES device_scan_batches(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_fleet_issues_device_status
+        ON fleet_issues(device_id, status);
+
+        CREATE INDEX IF NOT EXISTS idx_fleet_issues_status
+        ON fleet_issues(status);
+        """
+    )
+    connection.execute(
+        "INSERT INTO schema_migrations (migration_id) VALUES (?)",
+        (PHASE_12B_MIGRATION,),
     )
 
 

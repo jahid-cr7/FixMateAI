@@ -61,3 +61,18 @@ class DeviceService:
 
     def history(self, device_id: str, page: int, page_size: int) -> dict[str, Any]:
         return self.store.scan_history(device_id, page, page_size)
+
+    def list_fleet_issues(
+        self,
+        device_id: str | None = None,
+        status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return self.store.list_fleet_issues(device_id, status)
+
+    def update_fleet_issue(
+        self,
+        issue_id: int,
+        status: str,
+        technician_note: str = "",
+    ) -> dict[str, Any] | None:
+        return self.store.update_fleet_issue(issue_id, status, technician_note)

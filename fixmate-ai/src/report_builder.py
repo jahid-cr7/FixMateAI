@@ -169,6 +169,16 @@ def _build_fleet_report(
         "most_common_severity": _most_common_severity(devices),
         "online_threshold_minutes": online_minutes,
     }
+    open_issues = store.list_fleet_issues(status="open")
+    acknowledged_issues = store.list_fleet_issues(status="acknowledged")
+    in_progress_issues = store.list_fleet_issues(status="in_progress")
+    resolved_issues = store.list_fleet_issues(status="resolved")
+    false_positive_issues = store.list_fleet_issues(status="false_positive")
+    fleet_payload["open_issue_count"] = len(open_issues)
+    fleet_payload["acknowledged_issue_count"] = len(acknowledged_issues)
+    fleet_payload["in_progress_issue_count"] = len(in_progress_issues)
+    fleet_payload["resolved_issue_count"] = len(resolved_issues)
+    fleet_payload["false_positive_issue_count"] = len(false_positive_issues)
     recommendations: list[str] = []
     report_devices: list[dict[str, Any]] = []
 
@@ -188,6 +198,7 @@ def _build_fleet_report(
                     "selected_device_id": selected["device_id"],
                     "recent_heartbeats": store.heartbeat_history(str(selected["device_id"]), limit=10),
                     "recent_scan_batches": store.scan_history(str(selected["device_id"]), page=1, page_size=10)["items"],
+                    "fleet_issues": store.list_fleet_issues(device_id=str(selected["device_id"])),
                 }
             )
             recommendations.append(_fleet_recommendation(selected))

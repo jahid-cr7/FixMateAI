@@ -7,7 +7,15 @@ import streamlit as st
 
 from src.database import DEFAULT_DB_PATH
 from src.fleet import FleetStore
-from src.fleet_status import filter_devices, fleet_summary
+from src.fleet_status import ISSUE_STATUSES, filter_devices, fleet_summary
+
+STATUS_COLORS = {
+    "open": "🔴",
+    "acknowledged": "🟡",
+    "in_progress": "🔵",
+    "resolved": "🟢",
+    "false_positive": "⚪",
+}
 
 st.set_page_config(page_title="Device Fleet | FixMate AI", page_icon="🖥️", layout="wide")
 
@@ -128,14 +136,55 @@ if latest:
         "Internet", "Online" if network.get("internet_connected") else "Offline"
     )
     st.caption(f"Most recent scan upload: {latest['timestamp']}")
-    issues = payload.get("issues") or []
-    if issues:
-        st.warning(f"Latest batch contains {len(issues)} detected issue(s).")
-        st.dataframe(pd.DataFrame(issues), width="stretch", hide_index=True)
-    else:
-        st.success("The latest uploaded batch contains no detected issues.")
+
+st.subheader("Device issues")
+issue_status_filter = st.selectbox(
+    "Issue status", ["All", *sorted(ISSUE_STATUSES)], key="issue_status_filter"
+)
+fleet_issues = store.list_fleet_issues(
+    device_id=selected_id,
+    status=None if issue_status_filter == "All" else issue_status_filter,
+)
+
+if fleet_issues:
+    for issue in fleet_issues:
+        icon = STATUS_COLORS.get(issue["status"], "⚪")
+        with st.container(border=True):
+            header_cols = st.columns([3, 1, 1, 1])
+            header_cols[0].markdown(
+                f"{icon} **{issue['code']}** — {issue['severity'].title()}"
+            )
+            header_cols[1].caption(f"Status: {issue['status'].replace('_', ' ').title()}")
+            header_cols[2].caption(f"Detected: {issue['detected_at']}")
+            if issue.get("acknowledged_at"):
+                header_cols[3].caption(f"Acked: {issue['acknowledged_at']}")
+            if issue.get("resolved_at"):
+                st.caption(f"Resolved: {issue['resolved_at']}")
+            st.write(issue.get("evidence", ""))
+            if issue.get("technician_note"):
+                st.info(f"Note: {issue['technician_note']}")
+            action_cols = st.columns(5)
+            if issue["status"] == "open":
+                if action_cols[0].button("Acknowledge", key=f"ack-{issue['id']}"):
+                    store.update_fleet_issue(issue["id"], "acknowledged")
+                    st.rerun()
+            if issue["status"] in ("acknowledged", "open"):
+                if action_cols[1].button("In Progress", key=f"prog-{issue['id']}"):
+                    store.update_fleet_issue(issue["id"], "in_progress")
+                    st.rerun()
+            if issue["status"] in ("open", "acknowledged", "in_progress"):
+                note_key = f"note-{issue['id']}"
+                note_val = st.text_input(
+                    "Technician note", key=note_key, max_chars=2000, label_visibility="collapsed", placeholder="Add note..."
+                )
+                if action_cols[2].button("Resolve", key=f"res-{issue['id']}"):
+                    store.update_fleet_issue(issue["id"], "resolved", note_val)
+                    st.rerun()
+                if action_cols[3].button("False Positive", key=f"fp-{issue['id']}"):
+                    store.update_fleet_issue(issue["id"], "false_positive", note_val)
+                    st.rerun()
 else:
-    st.info("This device has not uploaded a scan batch yet.")
+    st.info("No issues match the selected filter for this device.")
 
 st.subheader("Recent scan batches")
 history = store.scan_history(selected_id, page=1, page_size=20)

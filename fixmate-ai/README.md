@@ -48,6 +48,8 @@ The project is deliberately **read-only**. It does not require administrator/roo
 | 11A | Privacy-minimized endpoint agent, hashed enrollment, fleet API/history, and multi-device dashboard |
 | 11B | Offline endpoint upload queue and foreground scheduled agent loop with heartbeat-only mode |
 | 11C-1 | Fleet-aware diagnostic reports for summaries, single devices, offline devices, and high-risk devices |
+| 12A | Runtime provider selector in Troubleshooting Assistant; Tencent TokenHub GLM integration cleanup |
+| 12B | Fleet alert acknowledgement workflow with status tracking, technician notes, and API endpoints |
 
 ## Screenshots
 

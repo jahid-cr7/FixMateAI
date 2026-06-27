@@ -29,6 +29,15 @@ FixMate AI currently provides read-only diagnostics, deterministic troubleshooti
 
 Formal credential rotation and optional service-manager instructions remain candidate follow-ups.
 
+## Phase 12B — Fleet Alert Acknowledgement Workflow — complete
+
+- Fleet issues from scan uploads automatically start as **open**.
+- Technicians can acknowledge, mark in progress, resolve, or dismiss as false positive.
+- Timestamps and optional technician notes are recorded at each transition.
+- Streamlit Device Fleet page shows issue status badges, filters, and action buttons.
+- Authenticated API endpoints support programmatic issue management.
+- Reports include open, acknowledged, and in-progress issue counts.
+
 ## Near-term
 
 - Add a first-class Streamlit database selector for marked synthetic demo databases.
