@@ -113,11 +113,37 @@ def registration_payload(config: AgentConfig, scan: dict[str, Any]) -> dict[str,
     )
 
 
+def minimal_registration_payload(config: AgentConfig) -> dict[str, Any]:
+    """Build registration metadata without running full diagnostics."""
+    now = datetime.now(timezone.utc).isoformat()
+    system_name = platform.system() or "Unknown"
+    return _redact(
+        {
+            "device_id": config.device_id,
+            "display_name": config.device_name,
+            "operating_system": system_name,
+            "platform": system_name,
+            "agent_version": AGENT_VERSION,
+            "timestamp": now,
+        }
+    )
+
+
 def heartbeat_payload(config: AgentConfig, scan: dict[str, Any]) -> dict[str, Any]:
     """Build a minimal heartbeat from the same one-shot collection time."""
     return {
         "device_id": config.device_id,
         "timestamp": scan["timestamp"],
+        "status": "online",
+        "agent_version": AGENT_VERSION,
+    }
+
+
+def current_heartbeat_payload(config: AgentConfig) -> dict[str, Any]:
+    """Build a minimal heartbeat timestamped at call time."""
+    return {
+        "device_id": config.device_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "status": "online",
         "agent_version": AGENT_VERSION,
     }

@@ -92,3 +92,29 @@ def test_fleet_status_and_filters_are_deterministic() -> None:
         "high_risk": 1,
     }
     assert filter_devices(devices, operating_system="ubuntu") == [devices[1]]
+
+
+def test_stale_replay_does_not_regress_device_last_seen(tmp_path) -> None:
+    store = FleetStore(tmp_path / "fleet.db")
+    fresh = "2026-06-22T10:00:00+00:00"
+    stale = "2026-06-21T10:00:00+00:00"
+    store.register_device(_device(fresh), "token")
+    store.record_heartbeat(
+        {
+            "device_id": "device-test-001",
+            "timestamp": fresh,
+            "status": "online",
+            "agent_version": "1.0.0",
+        }
+    )
+    store.record_heartbeat(
+        {
+            "device_id": "device-test-001",
+            "timestamp": stale,
+            "status": "degraded",
+            "agent_version": "0.9.0",
+        }
+    )
+    device = store.get_device("device-test-001")
+    assert device and device["last_seen_at"] == fresh
+    assert device["agent_version"] == "1.0.0"

@@ -88,6 +88,14 @@ def report_rows(report: DiagnosticReport) -> list[dict[str, str]]:
             for key, value in payload.items():
                 if key not in {"issues", "evidence_timestamp", "collected_at", "analyzed_at"}:
                     add(section_name, key, value, evidence_time, payload.get("severity"))
+    if report.fleet:
+        evidence_time = report.fleet.get("evidence_timestamp") or report.generated_at
+        for key, value in report.fleet.items():
+            add("fleet", key, value, evidence_time)
+    for device in report.devices:
+        device_label = str(device.get("display_name") or device.get("device_id") or "device")
+        timestamp = device.get("last_scan_timestamp") or device.get("last_seen_at")
+        add("devices", device_label, device, timestamp, device.get("highest_severity"), device.get("safe_recommendation"))
     for issue in report.issues:
         add(
             "issues",

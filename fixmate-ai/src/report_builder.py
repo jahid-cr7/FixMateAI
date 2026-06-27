@@ -13,6 +13,8 @@ from src.assistant_tools import (
     get_screenshot_analysis,
 )
 from src.database import DEFAULT_DB_PATH
+from src.fleet import FleetStore
+from src.fleet_status import fleet_summary
 from src.report_models import DiagnosticReport, REPORT_TITLES, ReportOptions, ReportType
 from src.report_privacy import sanitize_report
 from src.troubleshooting_assistant import answer_question
@@ -102,6 +104,137 @@ def _screenshot_payload(screenshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _most_common_severity(devices: list[dict[str, Any]]) -> str | None:
+    counts: dict[str, int] = {}
+    for device in devices:
+        severity = str(device.get("highest_severity") or "").casefold()
+        if severity and severity != "none":
+            counts[severity] = counts.get(severity, 0) + 1
+    if not counts:
+        return None
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+
+
+def _fleet_recommendation(device: dict[str, Any]) -> str:
+    status = str(device.get("status") or "").casefold()
+    severity = str(device.get("highest_severity") or "").casefold()
+    if status == "offline":
+        return (
+            "Guidance: verify the endpoint agent is running in the foreground, "
+            "confirm network access to the FixMate API, then flush the local queue."
+        )
+    if severity in {"high", "critical"}:
+        return (
+            "Guidance: review the latest scan evidence for this endpoint first and "
+            "prioritize safe remediation steps with an IT operator."
+        )
+    return "Guidance: monitor future heartbeats and scan uploads."
+
+
+def _device_report_row(device: dict[str, Any], latest_scan: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "device_id": device.get("device_id"),
+        "display_name": device.get("display_name"),
+        "operating_system": device.get("operating_system"),
+        "platform": device.get("platform"),
+        "agent_version": device.get("agent_version"),
+        "first_seen_at": device.get("first_seen_at"),
+        "last_seen_at": device.get("last_seen_at"),
+        "status": device.get("status"),
+        "latest_health_score": device.get("latest_health_score"),
+        "highest_severity": device.get("highest_severity"),
+        "issue_count": device.get("issue_count"),
+        "last_scan_timestamp": (latest_scan or {}).get("timestamp"),
+        "safe_recommendation": _fleet_recommendation(device),
+    }
+
+
+def _build_fleet_report(
+    options: ReportOptions,
+    database_path: Path,
+    now: datetime,
+) -> DiagnosticReport:
+    store = FleetStore(database_path)
+    online_minutes = max(1, options.fleet_online_minutes)
+    devices = store.list_devices(online_minutes, now=now)
+    recent_batches = [
+        batch
+        for batch in store.recent_scan_batches(limit=25)
+        if _in_range(batch.get("timestamp"), options)
+    ]
+    summary = fleet_summary(devices)
+    fleet_payload: dict[str, Any] = {
+        **summary,
+        "recent_scan_batch_count": len(recent_batches),
+        "most_common_severity": _most_common_severity(devices),
+        "online_threshold_minutes": online_minutes,
+    }
+    recommendations: list[str] = []
+    report_devices: list[dict[str, Any]] = []
+
+    if options.report_type == ReportType.FLEET_SUMMARY:
+        report_devices = [_device_report_row(device, store.latest_scan(str(device.get("device_id")))) for device in devices]
+        if summary["offline"]:
+            recommendations.append("Guidance: review offline endpoints and flush their local queues after connectivity returns.")
+        if summary["high_risk"]:
+            recommendations.append("Guidance: prioritize endpoints with high or critical latest severity.")
+    elif options.report_type == ReportType.SINGLE_DEVICE:
+        selected = store.get_device(str(options.device_id or ""), online_minutes, now=now)
+        if selected:
+            latest = store.latest_scan(str(selected["device_id"]))
+            report_devices = [_device_report_row(selected, latest)]
+            fleet_payload.update(
+                {
+                    "selected_device_id": selected["device_id"],
+                    "recent_heartbeats": store.heartbeat_history(str(selected["device_id"]), limit=10),
+                    "recent_scan_batches": store.scan_history(str(selected["device_id"]), page=1, page_size=10)["items"],
+                }
+            )
+            recommendations.append(_fleet_recommendation(selected))
+        else:
+            fleet_payload.update(
+                {
+                    "selected_device_id": options.device_id,
+                    "status": "No matching device was found.",
+                }
+            )
+    elif options.report_type == ReportType.OFFLINE_DEVICES:
+        offline = [device for device in devices if device.get("status") == "offline"]
+        report_devices = [_device_report_row(device, store.latest_scan(str(device.get("device_id")))) for device in offline]
+        if offline:
+            recommendations.append("Guidance: check endpoint connectivity, local agent terminal state, and queued uploads.")
+    elif options.report_type == ReportType.HIGH_RISK_DEVICES:
+        risky = [device for device in devices if str(device.get("highest_severity") or "").casefold() in {"high", "critical"}]
+        report_devices = [_device_report_row(device, store.latest_scan(str(device.get("device_id")))) for device in risky]
+        if risky:
+            recommendations.append("Guidance: triage high-risk endpoints first using their latest scan evidence.")
+
+    if not _allows(options, "fleet"):
+        fleet_payload = {}
+    if not _allows(options, "devices"):
+        report_devices = []
+
+    report = DiagnosticReport(
+        report_type=options.report_type,
+        title=REPORT_TITLES[options.report_type],
+        generated_at=now,
+        date_from=_as_utc(options.date_from),
+        date_to=_as_utc(options.date_to),
+        device_summary={
+            "status": "Fleet report generated from endpoint-agent records.",
+            "evidence_timestamp": now.isoformat(),
+        },
+        fleet=fleet_payload or None,
+        devices=report_devices,
+        recommendations=recommendations if _allows(options, "recommendations") else [],
+        limitations=list(DEFAULT_LIMITATIONS)
+        + ["Fleet status depends on heartbeat freshness and the configured online threshold."],
+        privacy_notice=PRIVACY_NOTICE,
+        empty=not bool(devices if options.report_type == ReportType.FLEET_SUMMARY else report_devices),
+    )
+    return sanitize_report(report)
+
+
 def build_report(
     options: ReportOptions,
     database_path: Path = DEFAULT_DB_PATH,
@@ -115,6 +248,14 @@ def build_report(
             raise ValueError("date_from must not be later than date_to")
 
     now = _as_utc(generated_at) or datetime.now(timezone.utc)
+    if options.report_type in {
+        ReportType.FLEET_SUMMARY,
+        ReportType.SINGLE_DEVICE,
+        ReportType.OFFLINE_DEVICES,
+        ReportType.HIGH_RISK_DEVICES,
+    }:
+        return _build_fleet_report(options, database_path, now)
+
     scan = get_latest_health_scan(database_path)
     if scan and not _in_range(scan.get("collected_at"), options):
         scan = None

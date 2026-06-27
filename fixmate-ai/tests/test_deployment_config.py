@@ -32,6 +32,8 @@ def test_compose_has_two_loopback_services_and_shared_volume() -> None:
     assert "FIXMATE_API_TOKEN: ${FIXMATE_API_TOKEN:-}" in compose
     assert compose.count("fixmate_data:/app/data") == 2
     assert compose.count("FIXMATE_LLM_PROVIDER: ${FIXMATE_LLM_PROVIDER:-disabled}") == 2
+    assert compose.count("TENCENT_TOKENHUB_API_KEY: ${TENCENT_TOKENHUB_API_KEY:-}") == 2
+    assert compose.count("TENCENT_TOKENHUB_MODEL: ${TENCENT_TOKENHUB_MODEL:-glm-5.1}") == 2
 
 
 def test_dockerignore_excludes_private_and_generated_content() -> None:

@@ -1,4 +1,4 @@
-"""One-shot privacy-safe endpoint agent for FixMate AI."""
+"""Privacy-safe endpoint agent for FixMate AI."""
 
 from src import __version__
 

@@ -7,8 +7,8 @@ FixMate AI is a local-first, read-only diagnostic application. Collection, deter
 ```mermaid
 flowchart LR
     OS["Windows or Ubuntu"] --> C["psutil collectors"]
-    Remote["Managed endpoint"] --> Agent["One-shot endpoint agent"]
-    Agent -->|"minimized authenticated batch"| API
+    Remote["Managed endpoint"] --> Agent["Endpoint agent: one-shot or foreground schedule"]
+    Agent -->|"minimized authenticated heartbeat / batch"| API
     C --> D["Deterministic detectors"]
     D --> DB[("SQLite history")]
     DB --> UI["Streamlit pages"]
@@ -102,6 +102,8 @@ erDiagram
 Migrations are additive and preserve Phase 1–3 records. Assistant conversations and generated reports have no database tables.
 
 Phase 11A adds `devices`, `device_heartbeats`, and `device_scan_batches`. Device rows store a per-device salt and PBKDF2 token digest, never the raw enrollment token. Batches contain only summarized metrics and redacted issue evidence.
+
+Phase 11B adds a local endpoint-agent queue and foreground scheduled runner. Queue files live outside SQLite, contain only allowlisted endpoint paths plus redacted payloads, and are deleted only after confirmed upload. Scheduled mode runs in the user's terminal; Streamlit displays fleet evidence but does not schedule endpoints.
 
 ## Assistant safety model
 

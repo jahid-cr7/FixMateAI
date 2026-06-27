@@ -1,4 +1,4 @@
-"""Streamlit fleet overview for registered one-shot endpoint agents."""
+"""Streamlit fleet overview for registered endpoint agents."""
 
 from __future__ import annotations
 
@@ -16,10 +16,11 @@ devices = store.list_devices()
 summary = fleet_summary(devices)
 
 st.title("🖥️ Device Fleet")
-st.caption("Read-only status from registered one-shot FixMate AI endpoint agents")
+st.caption("Read-only status from registered FixMate AI endpoint agents")
 st.info(
     "Fleet status reflects uploaded heartbeats and scan batches. FixMate AI does not "
-    "run repairs, background services, notifications, or remote commands."
+    "run repairs, background services, notifications, or remote commands. Scheduled "
+    "collection is started from the endpoint CLI, not from Streamlit."
 )
 
 columns = st.columns(5)
@@ -33,7 +34,7 @@ if not devices:
     st.info(
         "No endpoint devices are registered yet. Run `python -m fixmate_agent "
         "--server http://127.0.0.1:8000 --dry-run` to inspect a safe payload, then "
-        "configure a device token and run a one-shot upload."
+        "configure a device token and run a one-shot or scheduled upload."
     )
     st.stop()
 
@@ -70,6 +71,7 @@ table = pd.DataFrame(filtered).rename(
         "display_name": "Device",
         "operating_system": "OS",
         "last_seen_at": "Last seen",
+        "agent_version": "Agent",
         "latest_health_score": "Health score",
         "highest_severity": "Severity",
         "issue_count": "Issues",
@@ -84,6 +86,7 @@ visible_columns = [
     "Severity",
     "Issues",
     "Last seen",
+    "Agent",
 ]
 st.dataframe(table[visible_columns], width="stretch", hide_index=True)
 
@@ -95,7 +98,7 @@ latest = store.latest_scan(selected_id)
 
 st.subheader("Selected device detail")
 if selected:
-    detail_columns = st.columns(4)
+    detail_columns = st.columns(5)
     detail_columns[0].metric("Status", str(selected["status"]).title())
     detail_columns[1].metric(
         "Health score",
@@ -107,6 +110,7 @@ if selected:
         "Severity", str(selected.get("highest_severity") or "None").title()
     )
     detail_columns[3].metric("Last seen", selected["last_seen_at"])
+    detail_columns[4].metric("Agent", selected["agent_version"])
     st.caption(
         f"Device ID: {selected['device_id']} · OS: {selected['operating_system']} · "
         f"Platform: {selected['platform']} · Agent: {selected['agent_version']}"
@@ -123,6 +127,7 @@ if latest:
     metric_columns[3].metric(
         "Internet", "Online" if network.get("internet_connected") else "Offline"
     )
+    st.caption(f"Most recent scan upload: {latest['timestamp']}")
     issues = payload.get("issues") or []
     if issues:
         st.warning(f"Latest batch contains {len(issues)} detected issue(s).")

@@ -47,7 +47,7 @@ def get_report_service(
     settings: Annotated[ApiSettings, Depends(get_settings)],
 ) -> ReportService:
     """Create a request-scoped in-memory report service."""
-    return ReportService(settings.database_path)
+    return ReportService(settings.database_path, settings.fleet_online_minutes)
 
 
 def get_device_service(

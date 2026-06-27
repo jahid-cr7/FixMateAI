@@ -22,6 +22,10 @@ data/*.db
 data/*.db-*
 data/*.sqlite
 data/*.sqlite3
+.fixmate-ai
+agent_queue
+data/agent_queue
+queue-*.json
 *.log
 .DS_Store
 Thumbs.db

@@ -12,6 +12,10 @@ from urllib.request import Request, urlopen
 class AgentClientError(RuntimeError):
     """Safe client error that excludes tokens and response internals."""
 
+    def __init__(self, message: str, retryable: bool = True) -> None:
+        super().__init__(message)
+        self.retryable = retryable
+
 
 class AgentClient:
     """POST JSON payloads with a device token and bounded timeout."""
@@ -50,7 +54,8 @@ class AgentClient:
             return decoded if isinstance(decoded, dict) else {}
         except HTTPError as error:
             raise AgentClientError(
-                f"Server rejected the agent request with HTTP {error.code}."
+                f"Server rejected the agent request with HTTP {error.code}.",
+                retryable=error.code in {408, 425, 429} or error.code >= 500,
             ) from None
         except (URLError, TimeoutError, socket.timeout, OSError, ValueError):
             raise AgentClientError(

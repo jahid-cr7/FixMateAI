@@ -24,7 +24,7 @@ The project is deliberately **read-only**. It does not require administrator/roo
 - Additive SQLite migrations that preserve existing records
 - Local Pillow/OpenCV/Tesseract screenshot pipeline with deterministic knowledge-base matching
 - Evidence-grounded assistant with explicit intent routing and read-only tools
-- Optional consent-gated cloud or loopback Ollama-compatible explanation provider
+- Optional consent-gated cloud, Tencent TokenHub GLM, or loopback Ollama-compatible explanation provider
 - In-memory CSV, JSON, HTML, and PDF diagnostic reports
 - Localhost-first API security, token-protected POST routes, request limits, and rate limits
 - Non-root Docker Compose deployment with a shared SQLite volume
@@ -39,13 +39,15 @@ The project is deliberately **read-only**. It does not require administrator/roo
 | 2 | Active interfaces, traffic counters, bounded connectivity/latency checks, network issues and history |
 | 3 | Validated image upload, OpenCV preprocessing, optional local Tesseract OCR, curated error matching |
 | 4 | Deterministic natural-language troubleshooting over collected local evidence |
-| 5 | Optional bounded LLM explanation with consent, redaction, allowlisted tools, and deterministic fallback |
+| 5 | Optional bounded LLM explanation with consent, redaction, allowlisted tools, Tencent TokenHub GLM support, and deterministic fallback |
 | 6 | Versioned FastAPI backend with schemas, pagination, filters, request IDs, auth, CORS, and rate limits |
 | 7 | Privacy-safe system, network, screenshot, assistant, and full reports in CSV/JSON/HTML/PDF |
 | 8 | Python slim Docker image, separate Compose services, shared volume, Windows/Ubuntu CI matrix |
 | 9 | Safe synthetic demo tooling, vector assets, architecture/security docs, and interview package |
 | 10 | Shared demo database mode, release metadata, screenshot workflow, MIT license, and GitHub community templates |
 | 11A | Privacy-minimized endpoint agent, hashed enrollment, fleet API/history, and multi-device dashboard |
+| 11B | Offline endpoint upload queue and foreground scheduled agent loop with heartbeat-only mode |
+| 11C-1 | Fleet-aware diagnostic reports for summaries, single devices, offline devices, and high-risk devices |
 
 ## Screenshots
 
@@ -185,7 +187,7 @@ GET routes are read-only. Protected POST routes require `X-API-Token`; when no t
 
 ## Multi-device endpoint agent
 
-Phase 11A adds an opt-in, one-shot collector for managed Windows or Ubuntu endpoints. It reuses the existing read-only collectors, sends summarized metrics and redacted issue evidence, then exits. It is not a background service and performs no repairs.
+Phase 11A and 11B add an opt-in endpoint agent for managed Windows or Ubuntu endpoints. It reuses the existing read-only collectors, sends summarized metrics and redacted issue evidence, supports a bounded offline upload queue, and can run once or in a foreground scheduled loop. It is not a Windows Service, Linux systemd service, background daemon, or repair tool.
 
 Start FastAPI with separate administrator and enrollment tokens:
 
@@ -199,10 +201,29 @@ Run one endpoint submission:
 
 ```powershell
 $env:FIXMATE_DEVICE_TOKEN = Read-Host "Device enrollment token"
-python -m fixmate_agent --server http://127.0.0.1:8000 --device-name "Lab Endpoint"
+python -m fixmate_agent --server http://127.0.0.1:8000 --device-name "Lab Endpoint" --once
 ```
 
-Ubuntu uses `export FIXMATE_DEVICE_TOKEN="..."` followed by the same Python command. Preview the privacy-minimized payload without a token or server using `python -m fixmate_agent --dry-run`. See [AGENT.md](docs/AGENT.md) and [FLEET_DASHBOARD.md](docs/FLEET_DASHBOARD.md).
+Run three scheduled demo cycles:
+
+```powershell
+python -m fixmate_agent --server http://127.0.0.1:8000 --device-name "Lab Endpoint" --interval-seconds 10 --max-iterations 3
+```
+
+Send only heartbeat presence updates:
+
+```powershell
+python -m fixmate_agent --server http://127.0.0.1:8000 --device-name "Lab Endpoint" --heartbeat-only
+```
+
+Inspect and retry the offline queue:
+
+```powershell
+python -m fixmate_agent --queue-status
+python -m fixmate_agent --server http://127.0.0.1:8000 --flush-queue
+```
+
+Ubuntu uses `export FIXMATE_DEVICE_TOKEN="..."` followed by the same Python commands. Preview the privacy-minimized payload without a token or server using `python -m fixmate_agent --dry-run`. See [AGENT.md](docs/AGENT.md) and [FLEET_DASHBOARD.md](docs/FLEET_DASHBOARD.md).
 
 Example:
 
@@ -273,7 +294,18 @@ Supported deterministic question categories include:
 
 Every answer contains a direct conclusion, evidence, a relevant timestamp, freshness, severity where applicable, and guidance labeled as non-guaranteed. Missing, stale, or conflicting evidence is stated explicitly.
 
-Optional model enhancement is disabled by default. Provider configuration is documented in [.env.example](.env.example). Cloud evidence requires explicit session consent; invalid or unsafe output falls back to the deterministic answer. The application works normally without an API key, internet, Ollama, or any model.
+Optional model enhancement is disabled by default. Provider configuration is documented in [.env.example](.env.example). External cloud evidence, including Tencent TokenHub GLM, requires explicit session consent; invalid or unsafe output falls back to the deterministic answer. The application works normally without an API key, internet, Ollama, Tencent TokenHub, or any model.
+
+Optional Tencent TokenHub GLM setup uses environment variables only:
+
+```bash
+FIXMATE_LLM_PROVIDER=tencent
+TENCENT_TOKENHUB_API_KEY=your_tencent_tokenhub_api_key_here
+TENCENT_TOKENHUB_BASE_URL=https://api.lkeap.cloud.tencent.com/plan/v3
+TENCENT_TOKENHUB_MODEL=glm-5.1
+```
+
+Do not place real keys in source code, screenshots, reports, issues, or commits. The provider receives only redacted questions and minimized evidence after user consent; screenshots and raw OCR text are never sent.
 
 ## Diagnostic reports
 
@@ -284,6 +316,10 @@ The Reports page and API generate:
 - Screenshot-analysis metadata
 - Deterministic assistant summary
 - Full diagnostic bundle
+- Fleet summary
+- Single endpoint device
+- Offline endpoint devices
+- High-risk endpoint devices
 
 Formats are CSV, JSON, standalone HTML, and PDF. Report bytes are generated in memory and not stored by default. Conversation history is excluded unless explicitly selected for one Streamlit export.
 
@@ -298,7 +334,7 @@ API discovery and generation:
 python -m pytest -v
 ```
 
-Tests use generated images, temporary databases, and mocked OCR, network, and provider operations. They require no internet, Tesseract, Ollama, cloud service, or real API key.
+Tests use generated images, temporary databases, and mocked OCR, network, and provider operations. They require no internet, Tesseract, Ollama, Tencent TokenHub, cloud service, or real API key.
 
 [GitHub Actions CI](../.github/workflows/ci.yml) runs the complete suite on:
 
@@ -410,4 +446,4 @@ fixmate-ai/
 - [Changelog](docs/CHANGELOG.md)
 - [Contributing](../CONTRIBUTING.md)
 - [MIT License](../LICENSE)
-- [Latest phase plan](docs/PHASE10_PLAN.md)
+- [Latest phase plan](docs/PHASE11C_PLAN.md)

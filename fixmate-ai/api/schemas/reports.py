@@ -31,9 +31,10 @@ class GenerateReportRequest(BaseModel):
     format: ReportFormat
     date_from: datetime | None = None
     date_to: datetime | None = None
-    sections: list[str] = Field(default_factory=lambda: list(REPORT_SECTIONS), max_length=6)
+    sections: list[str] = Field(default_factory=lambda: list(REPORT_SECTIONS), max_length=len(REPORT_SECTIONS))
     include_conversation: bool = False
     conversation_notes: list[str] = Field(default_factory=list, max_length=20)
+    device_id: str | None = Field(default=None, min_length=3, max_length=64)
 
     @model_validator(mode="after")
     def validate_scope(self) -> "GenerateReportRequest":
@@ -53,6 +54,8 @@ class GenerateReportRequest(BaseModel):
             raise ValueError("conversation_notes require include_conversation=true")
         if any(len(note) > 2000 for note in self.conversation_notes):
             raise ValueError("conversation notes must be 2000 characters or fewer")
+        if self.report_type == ReportType.SINGLE_DEVICE and not self.device_id:
+            raise ValueError("single_device reports require device_id")
         return self
 
     model_config = ConfigDict(

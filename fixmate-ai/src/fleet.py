@@ -72,7 +72,7 @@ class FleetStore:
                     operating_system = excluded.operating_system,
                     platform = excluded.platform,
                     agent_version = excluded.agent_version,
-                    last_seen_at = excluded.last_seen_at,
+                    last_seen_at = MAX(devices.last_seen_at, excluded.last_seen_at),
                     token_salt = excluded.token_salt,
                     token_hash = excluded.token_hash
                 """,
@@ -122,12 +122,18 @@ class FleetStore:
             )
             connection.execute(
                 """
-                UPDATE devices SET last_seen_at = ?, status = ?, agent_version = ?
+                UPDATE devices SET
+                    last_seen_at = MAX(last_seen_at, ?),
+                    status = CASE WHEN ? >= last_seen_at THEN ? ELSE status END,
+                    agent_version = CASE
+                        WHEN ? >= last_seen_at THEN ? ELSE agent_version END
                 WHERE device_id = ?
                 """,
                 (
                     safe["timestamp"],
+                    safe["timestamp"],
                     safe["status"],
+                    safe["timestamp"],
                     safe["agent_version"],
                     safe["device_id"],
                 ),
@@ -168,7 +174,7 @@ class FleetStore:
                 ),
             )
             connection.execute(
-                "UPDATE devices SET last_seen_at = ? WHERE device_id = ?",
+                "UPDATE devices SET last_seen_at = MAX(last_seen_at, ?) WHERE device_id = ?",
                 (safe["timestamp"], safe["device_id"]),
             )
             connection.commit()
@@ -252,6 +258,39 @@ class FleetStore:
             ).fetchone()
         return self._batch_dict(row) if row else None
 
+    def heartbeat_history(
+        self, device_id: str, limit: int = 25
+    ) -> list[dict[str, Any]]:
+        """Return recent heartbeat records for one device without token data."""
+        safe_limit = max(1, min(int(limit), 100))
+        with closing(connect(self.database_path)) as connection:
+            rows = connection.execute(
+                """
+                SELECT device_id, timestamp, status, agent_version
+                FROM device_heartbeats WHERE device_id = ?
+                ORDER BY id DESC LIMIT ?
+                """,
+                (device_id, safe_limit),
+            ).fetchall()
+        return [_redact(dict(row)) for row in rows]
+
+    def recent_scan_batches(self, limit: int = 25) -> list[dict[str, Any]]:
+        """Return recent minimized scan batches across the fleet."""
+        safe_limit = max(1, min(int(limit), 100))
+        with closing(connect(self.database_path)) as connection:
+            rows = connection.execute(
+                """
+                SELECT b.id, b.device_id, d.display_name, b.timestamp,
+                       b.payload_summary, b.health_score, b.highest_severity,
+                       b.issue_count
+                FROM device_scan_batches b
+                LEFT JOIN devices d ON d.device_id = b.device_id
+                ORDER BY b.id DESC LIMIT ?
+                """,
+                (safe_limit,),
+            ).fetchall()
+        return [_redact(self._batch_dict(row)) for row in rows]
+
     def scan_history(
         self, device_id: str, page: int = 1, page_size: int = 25
     ) -> dict[str, Any]:
@@ -288,4 +327,3 @@ class FleetStore:
         except (json.JSONDecodeError, TypeError):
             item["payload_summary"] = {}
         return _redact(item)
-

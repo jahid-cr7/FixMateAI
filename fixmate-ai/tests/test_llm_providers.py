@@ -11,6 +11,24 @@ from src.llm.cloud import CloudProvider
 from src.llm.disabled import DisabledProvider
 from src.llm.factory import create_provider
 from src.llm.ollama import OllamaProvider
+from src.llm.tencent import DEFAULT_TENCENT_MODEL, TencentTokenHubProvider
+
+
+class FakeTencentClient:
+    """Tiny OpenAI-compatible fake for offline Tencent provider tests."""
+
+    def __init__(self, responses: list[Any]) -> None:
+        self.responses = list(responses)
+        self.calls: list[dict[str, Any]] = []
+        self.chat = self
+        self.completions = self
+
+    def create(self, **kwargs: Any) -> Any:
+        self.calls.append(kwargs)
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 def test_default_provider_is_disabled() -> None:
@@ -92,3 +110,214 @@ def test_factory_validates_invalid_provider_name_as_disabled() -> None:
     provider = create_provider({"FIXMATE_LLM_PROVIDER": "not-real"})
     assert isinstance(provider, DisabledProvider)
 
+
+def test_tencent_provider_reports_missing_api_key_and_base_url() -> None:
+    """Tencent setup should identify missing fields without exposing secrets."""
+    missing_key = TencentTokenHubProvider(
+        api_key="",
+        base_url="https://api.lkeap.cloud.tencent.com/plan/v3",
+    )
+    assert missing_key.status.configured is False
+    assert "API key" in missing_key.status.message
+    with pytest.raises(ProviderError, match="API key"):
+        missing_key.complete([{"role": "user", "content": "test"}])
+
+    missing_url = TencentTokenHubProvider(api_key="secret", base_url="")
+    assert missing_url.status.configured is False
+    assert "base URL" in missing_url.status.message
+    assert "secret" not in missing_url.status.message
+
+
+def test_factory_creates_tencent_provider_from_environment() -> None:
+    """Tencent TokenHub should be selectable by environment only."""
+    provider = create_provider(
+        {
+            "FIXMATE_LLM_PROVIDER": "tencent",
+            "TENCENT_TOKENHUB_API_KEY": "placeholder-tokenhub-test-key",
+            "TENCENT_TOKENHUB_BASE_URL": "https://api.lkeap.cloud.tencent.com/plan/v3",
+            "TENCENT_TOKENHUB_MODEL": "",
+        }
+    )
+    assert isinstance(provider, TencentTokenHubProvider)
+    assert provider.status.configured is True
+    assert provider.status.external is True
+    assert DEFAULT_TENCENT_MODEL in provider.status.message
+    assert "placeholder-tokenhub-test-key" not in provider.status.message
+
+
+def test_tencent_provider_uses_openai_compatible_client_without_leaking_key() -> None:
+    """A mocked OpenAI-compatible client should receive safe chat-completion args."""
+    fake = FakeTencentClient(
+        [{"choices": [{"message": {"content": '{"tool_requests":[]}'}}]}]
+    )
+    captured: dict[str, Any] = {}
+
+    def factory(**kwargs: Any) -> FakeTencentClient:
+        captured.update(kwargs)
+        return fake
+
+    secret = "placeholder-tokenhub-test-key"
+    provider = TencentTokenHubProvider(
+        api_key=secret,
+        base_url="https://api.lkeap.cloud.tencent.com/plan/v3",
+        model="glm-5.1",
+        timeout_seconds=2,
+        client_factory=factory,
+    )
+    result = provider.complete([{"role": "user", "content": "test"}])
+    assert result == '{"tool_requests":[]}'
+    assert captured["api_key"] == secret
+    assert captured["base_url"] == "https://api.lkeap.cloud.tencent.com/plan/v3"
+    assert captured["timeout"] == 2
+    assert fake.calls[0]["model"] == "glm-5.1"
+    assert fake.calls[0]["response_format"] == {"type": "json_object"}
+    assert secret not in provider.status.message
+
+
+def test_tencent_provider_sanitizes_timeout_auth_and_malformed_response() -> None:
+    """Provider failures should produce generic safe ProviderError messages."""
+    class AuthenticationError(Exception):
+        pass
+
+    secret = "placeholder-tokenhub-test-key"
+    for response, expected in (
+        (TimeoutError(f"timeout {secret}"), "timed out"),
+        (AuthenticationError(f"auth failed {secret}"), "authentication failed"),
+        ({"unexpected": True}, "invalid response shape"),
+    ):
+        provider = TencentTokenHubProvider(
+            api_key=secret,
+            base_url="https://api.lkeap.cloud.tencent.com/plan/v3",
+            client_factory=lambda **_: FakeTencentClient([response]),
+        )
+        with pytest.raises(ProviderError) as error:
+            provider.complete([{"role": "user", "content": "test"}])
+        assert expected in str(error.value)
+        assert secret not in str(error.value)
+
+
+def test_list_provider_options_includes_deterministic_by_default() -> None:
+    """Empty environment must always offer Deterministic only."""
+    from src.llm.factory import list_provider_options
+
+    options = list_provider_options({})
+    assert options[0][0] == "Deterministic only"
+    assert isinstance(options[0][1], DisabledProvider)
+
+
+def test_list_provider_options_shows_tencent_configured() -> None:
+    """Tencent should appear without warning when credentials are present."""
+    from src.llm.factory import list_provider_options
+
+    options = list_provider_options(
+        {
+            "TENCENT_TOKENHUB_API_KEY": "test-key",
+            "TENCENT_TOKENHUB_BASE_URL": "https://api.lkeap.cloud.tencent.com/plan/v3",
+        }
+    )
+    tencent_labels = [l for l, _ in options if "Tencent" in l]
+    assert len(tencent_labels) == 1
+    assert "missing" not in tencent_labels[0].casefold()
+
+
+def test_list_provider_options_shows_tencent_missing_key() -> None:
+    """Tencent should indicate missing API key when only base URL is set."""
+    from src.llm.factory import list_provider_options
+
+    options = list_provider_options(
+        {
+            "TENCENT_TOKENHUB_BASE_URL": "https://api.lkeap.cloud.tencent.com/plan/v3",
+        }
+    )
+    tencent_labels = [l for l, _ in options if "Tencent" in l]
+    assert len(tencent_labels) == 1
+    assert "missing API key" in tencent_labels[0]
+
+
+def test_list_provider_options_shows_tencent_missing_url() -> None:
+    """Tencent should indicate missing base URL when only API key is set."""
+    from src.llm.factory import list_provider_options
+
+    options = list_provider_options(
+        {
+            "TENCENT_TOKENHUB_API_KEY": "test-key",
+        }
+    )
+    tencent_labels = [l for l, _ in options if "Tencent" in l]
+    assert len(tencent_labels) == 1
+    assert "missing base URL" in tencent_labels[0]
+
+
+def test_list_provider_options_default_env_provider() -> None:
+    """When FIXMATE_LLM_PROVIDER is set, Default option should appear."""
+    from src.llm.factory import list_provider_options
+
+    options = list_provider_options(
+        {
+            "FIXMATE_LLM_PROVIDER": "tencent",
+            "TENCENT_TOKENHUB_API_KEY": "test-key",
+            "TENCENT_TOKENHUB_BASE_URL": "https://api.lkeap.cloud.tencent.com/plan/v3",
+        }
+    )
+    default_labels = [l for l, _ in options if l.startswith("Default")]
+    assert len(default_labels) == 1
+    assert "Tencent" in default_labels[0]
+
+
+def test_list_provider_options_does_not_leak_secret() -> None:
+    """No label or provider status should contain the API key."""
+    from src.llm.factory import list_provider_options
+
+    secret = "super-secret-key-abc123"
+    options = list_provider_options(
+        {
+            "TENCENT_TOKENHUB_API_KEY": secret,
+            "TENCENT_TOKENHUB_BASE_URL": "https://api.lkeap.cloud.tencent.com/plan/v3",
+        }
+    )
+    for label, provider in options:
+        assert secret not in label
+        assert secret not in provider.status.message
+
+
+def test_list_provider_options_shows_cloud_if_configured() -> None:
+    """Cloud should appear only when fully configured."""
+    from src.llm.factory import list_provider_options
+
+    options = list_provider_options(
+        {
+            "FIXMATE_CLOUD_API_URL": "https://provider.example/v1/chat/completions",
+            "FIXMATE_CLOUD_API_KEY": "cloud-key",
+            "FIXMATE_CLOUD_MODEL": "model-a",
+        }
+    )
+    cloud_labels = [l for l, _ in options if "Cloud" in l]
+    assert len(cloud_labels) == 1
+
+
+def test_list_provider_options_hides_unconfigured_cloud() -> None:
+    """Cloud should not appear when configuration is incomplete."""
+    from src.llm.factory import list_provider_options
+
+    options = list_provider_options(
+        {
+            "FIXMATE_CLOUD_API_URL": "",
+            "FIXMATE_CLOUD_API_KEY": "",
+            "FIXMATE_CLOUD_MODEL": "",
+        }
+    )
+    cloud_labels = [l for l, _ in options if "Cloud" in l]
+    assert len(cloud_labels) == 0
+
+
+def test_list_provider_options_shows_ollama_if_configured() -> None:
+    """Ollama should appear only when a local model is set."""
+    from src.llm.factory import list_provider_options
+
+    options = list_provider_options(
+        {
+            "FIXMATE_OLLAMA_MODEL": "local-model",
+        }
+    )
+    ollama_labels = [l for l, _ in options if "Ollama" in l]
+    assert len(ollama_labels) == 1

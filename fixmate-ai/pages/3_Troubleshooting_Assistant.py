@@ -7,7 +7,8 @@ import streamlit as st
 from src.assistant_tools import generate_health_summary
 from src.database import initialize_database
 from src.hybrid_agent import HybridAssistantResult, run_hybrid_assistant
-from src.llm import create_provider
+from src.llm import list_provider_options
+from src.llm.disabled import DisabledProvider
 from src.privacy import redact_sensitive_text
 from src.troubleshooting_assistant import AssistantAnswer, answer_question, data_freshness
 
@@ -86,15 +87,17 @@ st.info(
 
 summary = generate_health_summary()
 freshness = data_freshness(summary["latest_data_timestamp"])
-provider = create_provider()
-provider_status = provider.status
-
-mode = st.radio(
-    "Assistant mode",
-    ["Deterministic", "AI-enhanced (optional)"],
-    horizontal=True,
+provider_options = list_provider_options()
+option_labels = [label for label, _ in provider_options]
+selected_label = st.selectbox(
+    "Assistant mode & provider",
+    option_labels,
+    index=0,
     help="Deterministic mode is the source of truth and works without any provider.",
 )
+selected_provider = next(p for l, p in provider_options if l == selected_label)
+provider_status = selected_provider.status
+
 status_icon = "✅" if provider_status.configured else "ℹ️"
 st.write(
     f"{status_icon} **Provider status — {provider_status.name}:** "
@@ -102,7 +105,8 @@ st.write(
 )
 
 external_consent = False
-if mode == "AI-enhanced (optional)":
+is_ai_enhanced = not isinstance(selected_provider, DisabledProvider)
+if is_ai_enhanced:
     external_consent = st.checkbox(
         "I consent to sending a redacted question and minimized diagnostic evidence to the configured external provider.",
         value=False,
@@ -161,10 +165,10 @@ question = st.chat_input("Ask about collected system, network, issue, or screens
 pending_question = suggestion if ask_suggestion else question
 if pending_question:
     hybrid_result = None
-    if mode == "AI-enhanced (optional)":
+    if is_ai_enhanced:
         hybrid_result = run_hybrid_assistant(
             pending_question,
-            provider,
+            selected_provider,
             consent_external=external_consent,
         )
         answer = hybrid_result["answer"]

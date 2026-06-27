@@ -14,6 +14,8 @@ SENSITIVE_KEYS = {
     "passwd",
     "pwd",
     "token",
+    "token_hash",
+    "token_salt",
     "api_key",
     "secret",
     "username",
@@ -21,6 +23,8 @@ SENSITIVE_KEYS = {
     "target_host",
     "mac_address",
     "ip_address",
+    "queue_path",
+    "queue_file",
     "extracted_text",
     "raw_ocr_text",
 }
@@ -56,8 +60,9 @@ def sanitize_report(report: DiagnosticReport) -> DiagnosticReport:
         issues=redact_report_value(report.issues),
         screenshot=redact_report_value(report.screenshot),
         assistant=redact_report_value(report.assistant),
+        fleet=redact_report_value(report.fleet),
+        devices=redact_report_value(report.devices),
         recommendations=redact_report_value(report.recommendations),
         limitations=redact_report_value(report.limitations),
         privacy_notice=redact_sensitive_text(report.privacy_notice),
     )
-

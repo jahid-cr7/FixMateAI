@@ -8,7 +8,26 @@ FixMate AI currently provides read-only diagnostics, deterministic troubleshooti
 - Hashed device enrollment, heartbeat and scan-batch persistence
 - Authenticated ingestion/admin APIs and Streamlit fleet dashboard
 
-Fleet-aware report exports and a formal credential-rotation workflow remain candidate follow-ups.
+## Phase 11B — complete
+
+- Bounded local offline queue for retryable endpoint uploads
+- Queue status and explicit queue flush commands
+- Foreground scheduled endpoint loop with interval seconds/minutes
+- Heartbeat-only mode, max-iteration demo safety, and clean Ctrl+C handling
+
+## Phase 11C-1 — complete
+
+- Fleet summary, single-device, offline-device, and high-risk-device reports
+- CSV, JSON, HTML, and PDF export through the existing report system
+- Streamlit device selection and FastAPI report generation for fleet scopes
+
+## Optional Tencent TokenHub GLM provider — complete
+
+- Tencent TokenHub GLM is available as an optional AI-enhanced explanation provider.
+- Deterministic troubleshooting remains the default source of truth.
+- Provider setup uses environment variables only and falls back safely on missing config, timeouts, auth failures, or malformed output.
+
+Formal credential rotation and optional service-manager instructions remain candidate follow-ups.
 
 ## Near-term
 
@@ -17,6 +36,8 @@ Fleet-aware report exports and a formal credential-rotation workflow remain cand
 - Add downloadable redaction-review summaries before report export.
 - Add coverage reporting and lightweight Ruff checks after a controlled formatting pass.
 - Validate Docker builds automatically in a separate CI job with image-layer caching.
+- Add optional documented recipes for Windows Task Scheduler or systemd timers without changing the agent into a remote-control service.
+- Add a clearer provider-selection UX if more external providers are added.
 
 ## Medium-term
 

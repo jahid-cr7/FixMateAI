@@ -4,9 +4,11 @@ FixMate AI is designed as a localhost-first, read-only diagnostic portfolio appl
 
 ## Endpoint enrollment and fleet access
 
-Phase 11A separates endpoint ingestion from fleet administration. Agents use `X-Device-Token`; administrator reads retain `X-API-Token`. Tokens are compared in constant time, and enrollment stores only a unique salt plus PBKDF2-HMAC-SHA256 digest. Agent routes have a separate in-memory rate limit. Raw tokens are excluded from database reads, responses, and logs.
+Phase 11A separates endpoint ingestion from fleet administration. Agents use `X-Device-Token`; administrator reads retain `X-API-Token`. Tokens are compared in constant time, and enrollment stores only a unique salt plus PBKDF2-HMAC-SHA256 digest. Agent routes have a separate in-memory rate limit. Raw tokens are excluded from database reads, responses, queue files, and logs.
 
-The endpoint has no command receiver, shell, repair tool, arbitrary file access, or background daemon. Use high-entropy tokens and localhost or a trusted protected network; rotate credentials after suspected exposure.
+The endpoint has no command receiver, shell, repair tool, arbitrary file access, service installer, or background daemon. Phase 11B scheduled mode is a foreground CLI loop controlled by the local user. Use high-entropy tokens and localhost or a trusted protected network; rotate credentials after suspected exposure.
+
+Offline queue files are local JSON records for retryable uploads only. They use internally generated filenames, allowlisted endpoint paths, redacted payloads, bounded file sizes/counts, and no request headers or raw device token. Queue redaction is best-effort, so protect the local user profile and delete old queue entries when no longer needed.
 
 ## Trust boundaries
 
@@ -39,9 +41,9 @@ Local token authentication is not sufficient for public internet deployment. A r
 
 ## Assistant and provider safety
 
-Deterministic mode is the default source of truth. Optional providers receive only minimized redacted evidence after required external consent. Tool names are validated against nine read-only tools, provider arguments are rejected, and tool/provider iterations are bounded. Unsafe, malformed, ungrounded, or repair-claiming output falls back to the deterministic answer.
+Deterministic mode is the default source of truth. Optional providers receive only minimized redacted evidence after required external consent. Supported provider modes include a generic HTTPS chat-completions provider, Tencent TokenHub GLM through the OpenAI-compatible client, and loopback-only Ollama-compatible providers. Tool names are validated against nine read-only tools, provider arguments are rejected, and tool/provider iterations are bounded. Unsafe, malformed, ungrounded, or repair-claiming output falls back to the deterministic answer.
 
-Provider credentials are read from environment variables. `.env`, logs, databases, reports, virtual environments, and caches are ignored by Git and excluded from Docker images.
+Provider credentials are read from environment variables. Tencent TokenHub uses `TENCENT_TOKENHUB_API_KEY`, `TENCENT_TOKENHUB_BASE_URL`, and `TENCENT_TOKENHUB_MODEL`; real values must never be hardcoded, logged, displayed, or committed. `.env`, logs, databases, reports, virtual environments, and caches are ignored by Git and excluded from Docker images.
 
 ## Reports
 

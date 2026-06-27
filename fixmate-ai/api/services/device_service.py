@@ -26,16 +26,21 @@ class DeviceService:
         self, payload: DeviceRegistrationRequest, token: str
     ) -> dict[str, Any]:
         data = payload.model_dump(mode="json")
+        data["timestamp"] = payload.timestamp.astimezone(timezone.utc).isoformat()
         return self.store.register_device(data, token)
 
     def authenticate(self, device_id: str, token: str | None) -> bool:
         return bool(token) and self.store.token_matches_device(device_id, token or "")
 
     def heartbeat(self, payload: DeviceHeartbeatRequest) -> dict[str, Any]:
-        return self.store.record_heartbeat(payload.model_dump(mode="json"))
+        data = payload.model_dump(mode="json")
+        data["timestamp"] = payload.timestamp.astimezone(timezone.utc).isoformat()
+        return self.store.record_heartbeat(data)
 
     def upload_scan(self, payload: DeviceScanUploadRequest) -> dict[str, Any]:
-        return self.store.record_scan_batch(payload.model_dump(mode="json"))
+        data = payload.model_dump(mode="json")
+        data["timestamp"] = payload.timestamp.astimezone(timezone.utc).isoformat()
+        return self.store.record_scan_batch(data)
 
     def list_devices(
         self,
@@ -56,4 +61,3 @@ class DeviceService:
 
     def history(self, device_id: str, page: int, page_size: int) -> dict[str, Any]:
         return self.store.scan_history(device_id, page, page_size)
-

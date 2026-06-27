@@ -14,6 +14,8 @@ python -m pytest
 python -m streamlit run app.py
 python -m api.main
 python -m fixmate_agent --dry-run
+python -m fixmate_agent --queue-status
+python -m fixmate_agent --server http://127.0.0.1:8000 --interval-seconds 10 --max-iterations 3
 python scripts/generate_demo_data.py --output data/demo_fixmate.db --seed 2026 --days 14
 docker compose config
 docker compose build
@@ -47,6 +49,7 @@ docker compose up
 - Deterministic assistant behavior is the default and source of truth; optional models may explain but never replace its facts or guidance.
 - Keep provider-specific code isolated under `src/llm/` and load configuration only from environment variables.
 - Never log, display, persist, or commit provider credentials.
+- Tencent TokenHub GLM must use only `TENCENT_TOKENHUB_API_KEY`, `TENCENT_TOKENHUB_BASE_URL`, and `TENCENT_TOKENHUB_MODEL`; never hardcode or read keys from source files.
 - Require explicit session consent before sending any redacted question or evidence to an external provider.
 - Ollama-compatible providers must be restricted to loopback hosts.
 - Providers must never import or receive database, filesystem, shell, process, settings, scanning, or repair capabilities.
@@ -68,12 +71,14 @@ docker compose up
 - Report filenames must be generated from enums and UTC timestamps, never user-supplied path components.
 - Conversation history is excluded from reports unless the user explicitly selects it for that export.
 - Test PDF output with local ReportLab/PyPDF tooling and provide a privacy-safe HTML fallback when PDF generation fails.
+- Fleet-aware reports must use `FleetStore` read models only, never expose token salts/hashes, raw device tokens, queue paths, or unrestricted endpoint payloads.
+- Single-device report generation must require an explicit device selection or `device_id`; never guess from private hostnames.
 - Keep Docker optional; native Windows and Ubuntu commands must remain fully supported.
 - Build one non-root slim image and run Streamlit and FastAPI as separate Compose services sharing only the SQLite data volume.
 - Bind container processes to `0.0.0.0` only when required internally; publish Compose ports on `127.0.0.1`.
 - Never copy `.env`, databases, reports, screenshots, caches, tests, virtual environments, or Git metadata into the runtime image.
 - CI must exercise the complete offline-safe suite on Windows and Ubuntu with Python 3.11 and 3.12.
-- Do not install or enable Tesseract, Ollama, or an external AI provider in CI or Docker by default.
+- Do not install or enable Tesseract, Ollama, Tencent TokenHub, or an external AI provider in CI or Docker by default.
 - Demo records must be deterministic, explicitly synthetic, free of personal identifiers, and stored only in an ignored database.
 - Never let demo tooling overwrite `data/fixmate.db` or an unmarked existing database.
 - Portfolio assets must use synthetic values and must be labeled as mockups rather than live proof.
@@ -83,10 +88,13 @@ docker compose up
 - Keep `src.__version__`, FastAPI metadata, README, changelog, and release tags aligned.
 - Public screenshots require synthetic data and the complete `docs/SCREENSHOTS.md` privacy review.
 - Community templates must never request private diagnostics, real screenshots, databases, logs, or secrets.
-- Endpoint agents remain one-shot, user-invoked, read-only processes; never add persistence, remote commands, repairs, or unrestricted collection.
+- Endpoint agents remain user-invoked, read-only CLI processes; one-shot and foreground scheduled loops are allowed, but never add Windows Service/systemd installation, remote commands, repairs, or unrestricted collection.
 - Agent payloads may contain summarized health/network metrics and redacted issue evidence, but never process/interface names, hostnames, addresses, screenshots, file contents, or raw tokens.
 - Authenticate enrollment with `X-Device-Token`, persist only salted token hashes, and retain `X-API-Token` for fleet administration.
 - Device status is deterministic from heartbeat age: recent is online, expired is offline, and absent/invalid is unknown.
+- Offline queue entries must use internally generated filenames, allowlisted agent endpoints, redacted payloads, atomic writes, and fixed file/count limits. Never persist request headers or device tokens.
+- Corrupted or unsafe queue entries must not be uploaded or automatically deleted; successful uploads are the only entries removed.
+- Scheduled agent mode must support bounded intervals, `--max-iterations` for tests/demos, heartbeat-only cycles, clean `Ctrl+C`, and no real waiting in automated tests.
 
 ## Before submitting changes
 
@@ -95,7 +103,7 @@ docker compose up
 3. Confirm the application starts when the Tesseract executable is unavailable.
 4. Confirm `data/fixmate.db` remains ignored by Git.
 5. Update `README.md` and the relevant phase plan when behavior changes.
-6. Run provider tests with injected transports only; automated tests must never contact cloud or Ollama endpoints.
+6. Run provider tests with injected transports/clients only; automated tests must never contact cloud, Tencent TokenHub, or Ollama endpoints.
 7. Confirm the complete app works with all `FIXMATE_LLM_*` variables absent.
 8. Run `python -m pytest tests/api` and verify `/health`, `/docs`, and all Streamlit pages.
 9. Confirm all POST routes reject absent/invalid API tokens and no credential is tracked.

@@ -16,6 +16,10 @@ class ReportType(str, Enum):
     SCREENSHOT_ANALYSIS = "screenshot_analysis"
     ASSISTANT_SUMMARY = "assistant_summary"
     FULL_DIAGNOSTIC = "full_diagnostic"
+    FLEET_SUMMARY = "fleet_summary"
+    SINGLE_DEVICE = "single_device"
+    OFFLINE_DEVICES = "offline_devices"
+    HIGH_RISK_DEVICES = "high_risk_devices"
 
 
 class ReportFormat(str, Enum):
@@ -33,9 +37,15 @@ REPORT_TITLES = {
     ReportType.SCREENSHOT_ANALYSIS: "Screenshot Error Analysis Report",
     ReportType.ASSISTANT_SUMMARY: "Troubleshooting Assistant Summary Report",
     ReportType.FULL_DIAGNOSTIC: "Full Diagnostic Bundle Report",
+    ReportType.FLEET_SUMMARY: "Fleet Summary Report",
+    ReportType.SINGLE_DEVICE: "Single Device Report",
+    ReportType.OFFLINE_DEVICES: "Offline Devices Report",
+    ReportType.HIGH_RISK_DEVICES: "High-Risk Devices Report",
 }
 
 REPORT_SECTIONS = (
+    "fleet",
+    "devices",
     "system",
     "network",
     "issues",
@@ -55,6 +65,8 @@ class ReportOptions:
     sections: tuple[str, ...] = REPORT_SECTIONS
     include_conversation: bool = False
     conversation_notes: tuple[str, ...] = ()
+    device_id: str | None = None
+    fleet_online_minutes: int = 5
 
 
 @dataclass
@@ -73,6 +85,8 @@ class DiagnosticReport:
     severity_summary: dict[str, int] = field(default_factory=dict)
     screenshot: dict[str, Any] | None = None
     assistant: dict[str, Any] | None = None
+    fleet: dict[str, Any] | None = None
+    devices: list[dict[str, Any]] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
     limitations: list[str] = field(default_factory=list)
     privacy_notice: str = ""
@@ -93,4 +107,3 @@ class ExportedReport:
     media_type: str
     content: bytes
     fallback_warning: str | None = None
-

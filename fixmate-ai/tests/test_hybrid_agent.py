@@ -9,6 +9,7 @@ from pathlib import Path
 from src.hybrid_agent import run_hybrid_assistant
 from src.llm.base import LLMMessage, LLMProvider, ProviderError, ProviderStatus
 from src.llm.disabled import DisabledProvider
+from src.llm.tencent import TencentTokenHubProvider
 from tests.test_assistant_tools import populate_assistant_database
 
 NOW = datetime(2026, 6, 19, 12, 0, tzinfo=timezone.utc)
@@ -199,3 +200,87 @@ def test_provider_error_message_cannot_leak_secret(tmp_path: Path) -> None:
         "Summarize health", provider, database_path=_database(tmp_path), now=NOW
     )
     assert "super-secret-key" not in str(result)
+
+
+class FakeTencentClient:
+    """OpenAI-compatible fake used to exercise Tencent through the hybrid path."""
+
+    def __init__(self, responses: list[object]) -> None:
+        self.responses = list(responses)
+        self.chat = self
+        self.completions = self
+
+    def create(self, **kwargs: object) -> object:
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+
+def _tencent_provider(
+    responses: list[object],
+    secret: str = "placeholder-tokenhub-test-key",
+) -> TencentTokenHubProvider:
+    fake = FakeTencentClient(responses)
+    return TencentTokenHubProvider(
+        api_key=secret,
+        base_url="https://api.lkeap.cloud.tencent.com/plan/v3",
+        model="glm-5.1",
+        client_factory=lambda **_: fake,
+    )
+
+
+def test_tencent_timeout_auth_and_malformed_output_fall_back(tmp_path: Path) -> None:
+    """Tencent-specific provider problems must preserve deterministic answers."""
+    class AuthenticationError(Exception):
+        pass
+
+    secret = "placeholder-tokenhub-test-key"
+    scenarios = [
+        [TimeoutError(f"timeout {secret}")],
+        [AuthenticationError(f"bad key {secret}")],
+        [{"unexpected": True}],
+    ]
+    for responses in scenarios:
+        result = run_hybrid_assistant(
+            "Is my disk nearly full?",
+            _tencent_provider(responses, secret),
+            consent_external=True,
+            database_path=_database(tmp_path),
+            now=NOW,
+        )
+        assert result["answer"]["intent"] == "disk_status"
+        assert result["ai_generated"] is False
+        assert result["fallback_used"] is True
+        assert secret not in str(result)
+
+
+def test_tencent_success_still_uses_redacted_evidence_and_deterministic_truth(tmp_path: Path) -> None:
+    """Tencent can add only a safe explanation; it cannot replace evidence."""
+    provider = _tencent_provider(
+        [
+            {"choices": [{"message": {"content": '{"tool_requests":[{"name":"get_disk_status","arguments":{}}]}'}}]},
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"explanation":"The recorded disk evidence shows 20.0% free space and is fresh."}'
+                        }
+                    }
+                ]
+            },
+        ]
+    )
+    result = run_hybrid_assistant(
+        "Is my disk nearly full? token=private123 username=Alice",
+        provider,
+        consent_external=True,
+        database_path=_database(tmp_path),
+        now=NOW,
+    )
+    assert result["ai_generated"] is True
+    assert result["provider_name"] == "Tencent TokenHub GLM"
+    assert result["answer"]["intent"] == "disk_status"
+    assert "20.0%" in result["answer"]["direct_answer"]
+    assert "private123" not in str(result)
+    assert "Alice" not in str(result)

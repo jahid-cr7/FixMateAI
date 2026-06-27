@@ -10,5 +10,6 @@ pytesseract>=0.3.13,<1
 fastapi>=0.115,<1
 uvicorn>=0.30,<1
 httpx>=0.27,<1
+openai>=1.68,<2
 reportlab>=4.2,<5
 pypdf>=5,<7

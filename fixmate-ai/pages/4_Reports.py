@@ -9,12 +9,19 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from src.database import DEFAULT_DB_PATH, initialize_database
+from src.fleet import FleetStore
 from src.report_builder import build_report
 from src.report_exporters import export_report
 from src.report_models import REPORT_SECTIONS, REPORT_TITLES, ReportFormat, ReportOptions, ReportType
 from src.report_ui import selected_conversation_notes, utc_date_range
 
 TYPE_LABELS = {report_type: REPORT_TITLES[report_type] for report_type in ReportType}
+FLEET_REPORT_TYPES = {
+    ReportType.FLEET_SUMMARY,
+    ReportType.SINGLE_DEVICE,
+    ReportType.OFFLINE_DEVICES,
+    ReportType.HIGH_RISK_DEVICES,
+}
 FORMAT_LABELS = {
     ReportFormat.CSV: "CSV - tabular data",
     ReportFormat.JSON: "JSON - structured diagnostics",
@@ -22,6 +29,8 @@ FORMAT_LABELS = {
     ReportFormat.PDF: "PDF - printable handover report",
 }
 SECTION_LABELS = {
+    "fleet": "Fleet summary",
+    "devices": "Fleet devices",
     "system": "System health",
     "network": "Network diagnostics",
     "issues": "Detected issues",
@@ -60,6 +69,22 @@ with left:
         default=list(REPORT_SECTIONS),
         format_func=lambda item: SECTION_LABELS[item],
     )
+    selected_device_id: str | None = None
+    if report_type in FLEET_REPORT_TYPES:
+        store = FleetStore(DEFAULT_DB_PATH)
+        fleet_devices = store.list_devices()
+        if not fleet_devices:
+            st.info("No endpoint fleet data is available yet. Run the endpoint agent to register a device and upload heartbeats or scans.")
+        if report_type == ReportType.SINGLE_DEVICE:
+            if fleet_devices:
+                device_options = {
+                    f"{device['display_name']} ({device['device_id']})": str(device["device_id"])
+                    for device in fleet_devices
+                }
+                selected_label = st.selectbox("Device", list(device_options))
+                selected_device_id = device_options[selected_label]
+            else:
+                st.warning("Single-device reports require at least one registered endpoint device.")
 
 with right:
     use_date_range = st.checkbox("Restrict evidence by date")
@@ -91,6 +116,7 @@ if st.button("Generate report", type="primary", disabled=not sections):
         sections=tuple(sections),
         include_conversation=include_conversation,
         conversation_notes=notes,
+        device_id=selected_device_id,
     )
     report = build_report(options, DEFAULT_DB_PATH)
     exported = export_report(report, report_format)

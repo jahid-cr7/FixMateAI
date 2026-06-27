@@ -15,8 +15,9 @@ from src.report_models import ReportOptions
 class ReportService:
     """Build and export reports without exposing database or filesystem access."""
 
-    def __init__(self, database_path: Path) -> None:
+    def __init__(self, database_path: Path, fleet_online_minutes: int = 5) -> None:
         self.database_path = database_path
+        self.fleet_online_minutes = fleet_online_minutes
 
     def generate(self, request: GenerateReportRequest) -> dict[str, Any]:
         """Return privacy-safe report bytes encoded for the JSON API envelope."""
@@ -27,6 +28,8 @@ class ReportService:
             sections=tuple(dict.fromkeys(request.sections)),
             include_conversation=request.include_conversation,
             conversation_notes=tuple(request.conversation_notes),
+            device_id=request.device_id,
+            fleet_online_minutes=self.fleet_online_minutes,
         )
         report = build_report(options, self.database_path)
         exported = export_report(report, request.format)
@@ -42,4 +45,3 @@ class ReportService:
             "content_base64": base64.b64encode(exported.content).decode("ascii"),
             "fallback_warning": exported.fallback_warning,
         }
-

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+from pathlib import Path
 from urllib.error import URLError
 
 import pytest
@@ -11,7 +12,7 @@ import pytest
 from fixmate_agent.client import AgentClient, AgentClientError
 from fixmate_agent.config import AgentConfig, parse_agent_config
 from fixmate_agent.payload import build_scan_payload
-from fixmate_agent.runner import run_once
+from fixmate_agent.runner import run_once, run_scheduled
 
 
 def _config(**changes) -> AgentConfig:
@@ -22,6 +23,7 @@ def _config(**changes) -> AgentConfig:
         "device_token": "secret-device-token",
         "timeout_seconds": 0.5,
         "dry_run": False,
+        "queue_dir": Path("test-agent-queue").resolve(),
     }
     values.update(changes)
     return AgentConfig(**values)
@@ -39,12 +41,16 @@ def _scan(config: AgentConfig) -> dict:
     }
 
 
-def test_agent_config_uses_environment_and_hides_token() -> None:
+def test_agent_config_uses_environment_and_hides_token(tmp_path) -> None:
     config = parse_agent_config(
         ["--dry-run", "--device-id", "device-test-001"],
-        {"FIXMATE_DEVICE_TOKEN": "never-print-this"},
+        {
+            "FIXMATE_DEVICE_TOKEN": "never-print-this",
+            "FIXMATE_AGENT_QUEUE_DIR": str(tmp_path / "queue"),
+        },
     )
     assert config.dry_run is True
+    assert config.queue_dir == (tmp_path / "queue").resolve()
     assert "never-print-this" not in repr(config)
     with pytest.raises(SystemExit):
         parse_agent_config(["--device-id", "../unsafe"], {})
@@ -103,10 +109,16 @@ def test_client_sets_device_header_and_handles_unavailable_server() -> None:
         AgentClient("http://localhost", "token", 0.5, unavailable).post("/x", {})
 
 
-def test_runner_dry_run_needs_no_token_and_uploads_in_order() -> None:
+def test_runner_dry_run_needs_no_token_and_uploads_in_order(tmp_path) -> None:
     output, errors = io.StringIO(), io.StringIO()
-    assert run_once(_config(device_token="", dry_run=True), output, errors, _scan) == 0
+    assert run_once(
+        _config(device_token="", dry_run=True, queue_dir=tmp_path / "queue"),
+        output,
+        errors,
+        _scan,
+    ) == 0
     assert "device-test-001" in output.getvalue()
+    assert not (tmp_path / "queue").exists()
 
     paths = []
 
@@ -118,10 +130,160 @@ def test_runner_dry_run_needs_no_token_and_uploads_in_order() -> None:
             paths.append(path)
             return {}
 
-    assert run_once(_config(), io.StringIO(), io.StringIO(), _scan, Client) == 0
+    assert run_once(
+        _config(queue_dir=tmp_path / "queue"),
+        io.StringIO(),
+        io.StringIO(),
+        _scan,
+        Client,
+    ) == 0
     assert paths == [
         "/api/v1/agent/register",
         "/api/v1/agent/heartbeat",
         "/api/v1/agent/scans",
     ]
 
+
+def test_cli_priority_and_environment_configuration(tmp_path) -> None:
+    config = parse_agent_config(
+        [
+            "--server",
+            "http://127.0.0.1:9000",
+            "--timeout",
+            "2",
+            "--queue-dir",
+            str(tmp_path / "cli-queue"),
+        ],
+        {
+            "FIXMATE_AGENT_SERVER_URL": "http://127.0.0.1:8002",
+            "FIXMATE_SERVER_URL": "http://127.0.0.1:8001",
+            "FIXMATE_AGENT_TIMEOUT_SECONDS": "4",
+            "FIXMATE_DEVICE_NAME": "Environment Endpoint",
+            "FIXMATE_AGENT_INTERVAL_SECONDS": "9",
+            "FIXMATE_AGENT_QUEUE_DIR": str(tmp_path / "environment-queue"),
+        },
+    )
+    assert config.server_url == "http://127.0.0.1:9000"
+    assert config.timeout_seconds == 2
+    assert config.queue_dir == (tmp_path / "cli-queue").resolve()
+
+    environment_config = parse_agent_config(
+        [],
+        {
+            "FIXMATE_AGENT_SERVER_URL": "http://127.0.0.1:8002",
+            "FIXMATE_SERVER_URL": "http://127.0.0.1:8001",
+            "FIXMATE_AGENT_TIMEOUT_SECONDS": "4",
+            "FIXMATE_DEVICE_NAME": "Environment Endpoint",
+            "FIXMATE_AGENT_INTERVAL_SECONDS": "9",
+            "FIXMATE_AGENT_QUEUE_DIR": str(tmp_path / "environment-queue"),
+        },
+    )
+    assert environment_config.server_url == "http://127.0.0.1:8002"
+    assert environment_config.device_name == "Environment Endpoint"
+    assert environment_config.timeout_seconds == 4
+    assert environment_config.interval_seconds == 9
+
+
+def test_scheduled_runner_uses_max_iterations_and_retries_queue(tmp_path) -> None:
+    output, errors = io.StringIO(), io.StringIO()
+    posted = []
+    sleeps = []
+
+    class Client:
+        def __init__(self, *args):
+            pass
+
+        def post(self, path, payload):
+            posted.append(path)
+            return {}
+
+    result = run_scheduled(
+        _config(queue_dir=tmp_path / "queue", interval_seconds=10, max_iterations=3),
+        output,
+        errors,
+        _scan,
+        Client,
+        sleeper=lambda seconds: sleeps.append(seconds),
+    )
+    assert result == 0
+    assert posted[0] == "/api/v1/agent/register"
+    assert posted.count("/api/v1/agent/heartbeat") == 3
+    assert posted.count("/api/v1/agent/scans") == 3
+    assert sleeps == [10, 10]
+    assert "Completed 3 scheduled cycle" in output.getvalue()
+
+
+def test_heartbeat_only_sends_no_scan(tmp_path) -> None:
+    posted = []
+
+    class Client:
+        def __init__(self, *args):
+            pass
+
+        def post(self, path, payload):
+            posted.append(path)
+            return {}
+
+    assert (
+        run_scheduled(
+            _config(queue_dir=tmp_path / "queue", heartbeat_only=True, max_iterations=1),
+            io.StringIO(),
+            io.StringIO(),
+            _scan,
+            Client,
+        )
+        == 0
+    )
+    assert "/api/v1/agent/register" in posted
+    assert "/api/v1/agent/heartbeat" in posted
+    assert "/api/v1/agent/scans" not in posted
+
+
+def test_failed_upload_does_not_crash_scheduled_runner(tmp_path) -> None:
+    calls = []
+
+    class SometimesOfflineClient:
+        def __init__(self, *args):
+            pass
+
+        def post(self, path, payload):
+            calls.append(path)
+            if path.endswith("/heartbeat"):
+                raise AgentClientError("offline")
+            return {}
+
+    result = run_scheduled(
+        _config(queue_dir=tmp_path / "queue", interval_seconds=1, max_iterations=2),
+        io.StringIO(),
+        io.StringIO(),
+        _scan,
+        SometimesOfflineClient,
+        sleeper=lambda _: None,
+    )
+    assert result == 1
+    assert calls.count("/api/v1/agent/heartbeat") >= 2
+    assert calls.count("/api/v1/agent/scans") == 2
+
+
+def test_scheduled_runner_handles_ctrl_c_cleanly(tmp_path) -> None:
+    class Client:
+        def __init__(self, *args):
+            pass
+
+        def post(self, path, payload):
+            return {}
+
+    def interrupted_sleep(seconds):
+        raise KeyboardInterrupt
+
+    output = io.StringIO()
+    result = run_scheduled(
+        _config(queue_dir=tmp_path / "queue", interval_seconds=10),
+        output,
+        io.StringIO(),
+        _scan,
+        Client,
+        sleeper=interrupted_sleep,
+    )
+    assert result == 130
+    assert "Ctrl+C" in output.getvalue()

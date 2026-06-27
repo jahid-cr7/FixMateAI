@@ -1,4 +1,4 @@
-"""Authenticated ingestion endpoints for one-shot endpoint agents."""
+"""Authenticated ingestion endpoints for endpoint agents."""
 
 from __future__ import annotations
 
@@ -86,4 +86,3 @@ def upload_scan(
     """Store one privacy-minimized scan batch after device authentication."""
     _authenticated_token(service, payload.device_id, token)
     return success(request, service.upload_scan(payload))
-

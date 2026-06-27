@@ -9,8 +9,57 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import create_app
+from src.fleet import FleetStore
 from src.report_models import ReportFormat, ReportType
 from tests.api.conftest import API_TOKEN, make_settings
+
+
+def _populate_fleet(database_path) -> None:
+    store = FleetStore(database_path)
+    timestamp = "2026-06-20T04:00:00+00:00"
+    for device_id, name, severity in (
+        ("device-api-001", "API Fleet Normal", "low"),
+        ("device-api-002", "API Fleet Risk", "high"),
+    ):
+        store.register_device(
+            {
+                "device_id": device_id,
+                "display_name": name,
+                "operating_system": "Ubuntu",
+                "platform": "Linux",
+                "agent_version": "1.0.0",
+                "timestamp": timestamp,
+            },
+            "synthetic-token",
+        )
+        store.record_heartbeat(
+            {
+                "device_id": device_id,
+                "timestamp": timestamp,
+                "status": "online",
+                "agent_version": "1.0.0",
+            }
+        )
+        store.record_scan_batch(
+            {
+                "device_id": device_id,
+                "timestamp": timestamp,
+                "agent_version": "1.0.0",
+                "health_score": 50 if severity == "high" else 95,
+                "system": {"operating_system": "Ubuntu", "platform": "Linux"},
+                "network": {"internet_connected": True},
+                "issues": [
+                    {
+                        "source": "system",
+                        "code": "synthetic",
+                        "severity": severity,
+                        "evidence": "alice@example.com token=secret",
+                        "explanation": "Synthetic fleet issue.",
+                        "recommendation": "Use safe synthetic guidance.",
+                    }
+                ],
+            }
+        )
 
 
 def test_report_types_endpoint_lists_every_type_and_format(client: TestClient) -> None:
@@ -19,6 +68,7 @@ def test_report_types_endpoint_lists_every_type_and_format(client: TestClient) -
     data = response.json()["data"]
     assert {item["id"] for item in data["types"]} == {item.value for item in ReportType}
     assert set(data["types"][0]["formats"]) == {item.value for item in ReportFormat}
+    assert "fleet_summary" in {item["id"] for item in data["types"]}
 
 
 def test_report_generation_requires_valid_authentication(client: TestClient) -> None:
@@ -58,6 +108,40 @@ def test_api_generates_every_format(
 
 
 @pytest.mark.parametrize(
+    "report_type,payload_extra",
+    [
+        ("fleet_summary", {}),
+        ("single_device", {"device_id": "device-api-002"}),
+        ("offline_devices", {}),
+        ("high_risk_devices", {}),
+    ],
+)
+def test_api_generates_fleet_reports(
+    empty_database_path,
+    auth_headers: dict[str, str],
+    report_type: str,
+    payload_extra: dict,
+) -> None:
+    _populate_fleet(empty_database_path)
+    with TestClient(create_app(make_settings(empty_database_path))) as test_client:
+        response = test_client.post(
+            "/api/v1/reports/generate",
+            headers=auth_headers,
+            json={"report_type": report_type, "format": "json", **payload_extra},
+        )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    parsed = json.loads(base64.b64decode(data["content_base64"], validate=True))
+    assert parsed["report_type"] == report_type
+    assert "token_hash" not in json.dumps(parsed)
+    assert "alice@example.com" not in json.dumps(parsed)
+    if report_type == "single_device":
+        assert parsed["devices"][0]["display_name"] == "API Fleet Risk"
+    if report_type == "high_risk_devices":
+        assert parsed["devices"][0]["highest_severity"] == "high"
+
+
+@pytest.mark.parametrize(
     "payload",
     [
         {"report_type": "../../etc", "format": "json"},
@@ -74,6 +158,7 @@ def test_api_generates_every_format(
             "format": "json",
             "conversation_notes": ["implicit history"],
         },
+        {"report_type": "single_device", "format": "json"},
     ],
 )
 def test_report_request_validation(
@@ -114,4 +199,3 @@ def test_empty_report_api_response(empty_database_path, auth_headers) -> None:
         )
     assert response.status_code == 200
     assert response.json()["data"]["empty"] is True
-

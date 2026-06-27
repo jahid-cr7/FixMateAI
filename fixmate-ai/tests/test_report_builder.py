@@ -7,15 +7,89 @@ from datetime import date, datetime, timezone
 import pytest
 
 from src.database import initialize_database
+from src.fleet import FleetStore
 from src.report_builder import build_report
 from src.report_models import REPORT_SECTIONS, ReportOptions, ReportType
 from src.report_ui import selected_conversation_notes, utc_date_range
 from tests.api.conftest import populate_api_database
 
 
-@pytest.mark.parametrize("report_type", list(ReportType))
+LOCAL_REPORT_TYPES = (
+    ReportType.SYSTEM_HEALTH,
+    ReportType.NETWORK_DIAGNOSTICS,
+    ReportType.SCREENSHOT_ANALYSIS,
+    ReportType.ASSISTANT_SUMMARY,
+    ReportType.FULL_DIAGNOSTIC,
+)
+
+
+def _populate_fleet(database_path) -> None:
+    store = FleetStore(database_path)
+    fresh = "2026-06-20T04:00:00+00:00"
+    stale = "2026-06-20T03:40:00+00:00"
+    devices = [
+        ("device-fleet-001", "Fleet Online", "Windows", fresh, 92, "low"),
+        ("device-fleet-002", "Fleet Offline", "Ubuntu", stale, 88, None),
+        ("device-fleet-003", "Fleet Risk", "Ubuntu", fresh, 41, "critical"),
+    ]
+    for device_id, name, os_name, timestamp, score, severity in devices:
+        store.register_device(
+            {
+                "device_id": device_id,
+                "display_name": name,
+                "operating_system": os_name,
+                "platform": os_name,
+                "agent_version": "1.0.0",
+                "timestamp": timestamp,
+            },
+            "synthetic-token",
+        )
+        if device_id != "device-fleet-002":
+            store.record_heartbeat(
+                {
+                    "device_id": device_id,
+                    "timestamp": timestamp,
+                    "status": "online",
+                    "agent_version": "1.0.0",
+                }
+            )
+        else:
+            store.record_heartbeat(
+                {
+                    "device_id": device_id,
+                    "timestamp": stale,
+                    "status": "online",
+                    "agent_version": "1.0.0",
+                }
+            )
+        issues = []
+        if severity:
+            issues = [
+                {
+                    "source": "system",
+                    "code": "synthetic_issue",
+                    "severity": severity,
+                    "evidence": "Synthetic fleet evidence token=secret C:\\Users\\Alice\\file.txt",
+                    "explanation": "Synthetic endpoint issue.",
+                    "recommendation": "Review the synthetic endpoint evidence.",
+                }
+            ]
+        store.record_scan_batch(
+            {
+                "device_id": device_id,
+                "timestamp": timestamp,
+                "agent_version": "1.0.0",
+                "health_score": score,
+                "system": {"operating_system": os_name, "platform": os_name},
+                "network": {"internet_connected": True},
+                "issues": issues,
+            }
+        )
+
+
+@pytest.mark.parametrize("report_type", LOCAL_REPORT_TYPES)
 def test_every_report_type_builds(report_type: ReportType, tmp_path) -> None:
-    """All five report scopes should build from the same temporary evidence."""
+    """Local report scopes should build from the same temporary evidence."""
     database_path = tmp_path / "reports.db"
     populate_api_database(database_path)
     report = build_report(
@@ -30,6 +104,34 @@ def test_every_report_type_builds(report_type: ReportType, tmp_path) -> None:
     assert report.empty is False
 
 
+@pytest.mark.parametrize(
+    "report_type",
+    (
+        ReportType.FLEET_SUMMARY,
+        ReportType.SINGLE_DEVICE,
+        ReportType.OFFLINE_DEVICES,
+        ReportType.HIGH_RISK_DEVICES,
+    ),
+)
+def test_fleet_report_types_build(report_type: ReportType, tmp_path) -> None:
+    database_path = tmp_path / "fleet-reports.db"
+    _populate_fleet(database_path)
+    report = build_report(
+        ReportOptions(
+            report_type=report_type,
+            device_id="device-fleet-003" if report_type == ReportType.SINGLE_DEVICE else None,
+            fleet_online_minutes=5,
+        ),
+        database_path,
+        datetime(2026, 6, 20, 4, 1, tzinfo=timezone.utc),
+    )
+    assert report.report_type == report_type
+    assert report.privacy_notice
+    assert report.empty is False
+    assert "secret" not in str(report.to_dict())
+    assert "C:\\Users" not in str(report.to_dict())
+
+
 def test_report_type_limits_unrelated_sections(tmp_path) -> None:
     """Focused reports should not silently include unrelated evidence categories."""
     database_path = tmp_path / "scope.db"
@@ -42,6 +144,67 @@ def test_report_type_limits_unrelated_sections(tmp_path) -> None:
     assert network.network and not network.system and not network.screenshot
     assert all(issue["source"] == "network" for issue in network.issues)
     assert screenshot.screenshot and screenshot.issues == []
+
+
+def test_fleet_summary_report_contents(tmp_path) -> None:
+    database_path = tmp_path / "fleet-summary.db"
+    _populate_fleet(database_path)
+    report = build_report(
+        ReportOptions(ReportType.FLEET_SUMMARY, fleet_online_minutes=5),
+        database_path,
+        datetime(2026, 6, 20, 4, 1, tzinfo=timezone.utc),
+    )
+    assert report.fleet
+    assert report.fleet["total"] == 3
+    assert report.fleet["online"] == 2
+    assert report.fleet["offline"] == 1
+    assert report.fleet["high_risk"] == 1
+    assert report.fleet["recent_scan_batch_count"] == 3
+    assert report.fleet["most_common_severity"] in {"critical", "low"}
+
+
+def test_single_device_report_contains_history(tmp_path) -> None:
+    database_path = tmp_path / "single-device.db"
+    _populate_fleet(database_path)
+    report = build_report(
+        ReportOptions(ReportType.SINGLE_DEVICE, device_id="device-fleet-003"),
+        database_path,
+        datetime(2026, 6, 20, 4, 1, tzinfo=timezone.utc),
+    )
+    assert report.devices[0]["display_name"] == "Fleet Risk"
+    assert report.fleet
+    assert report.fleet["recent_heartbeats"]
+    assert report.fleet["recent_scan_batches"]
+
+
+def test_offline_and_high_risk_reports_filter_devices(tmp_path) -> None:
+    database_path = tmp_path / "filtered-fleet.db"
+    _populate_fleet(database_path)
+    now = datetime(2026, 6, 20, 4, 1, tzinfo=timezone.utc)
+    offline = build_report(
+        ReportOptions(ReportType.OFFLINE_DEVICES, fleet_online_minutes=5),
+        database_path,
+        now,
+    )
+    risky = build_report(ReportOptions(ReportType.HIGH_RISK_DEVICES), database_path, now)
+    assert [item["display_name"] for item in offline.devices] == ["Fleet Offline"]
+    assert [item["display_name"] for item in risky.devices] == ["Fleet Risk"]
+    assert "queue" in offline.recommendations[0].casefold()
+    assert "triage" in risky.recommendations[0].casefold()
+
+
+def test_empty_fleet_reports_do_not_invent_devices(tmp_path) -> None:
+    database_path = tmp_path / "empty-fleet.db"
+    initialize_database(database_path)
+    report = build_report(
+        ReportOptions(ReportType.FLEET_SUMMARY),
+        database_path,
+        datetime(2026, 6, 20, 4, 1, tzinfo=timezone.utc),
+    )
+    assert report.empty is True
+    assert report.devices == []
+    assert report.fleet
+    assert report.fleet["total"] == 0
 
 
 def test_empty_database_and_date_range_have_clear_empty_state(tmp_path) -> None:
@@ -130,4 +293,3 @@ def test_invalid_date_range_is_rejected(tmp_path) -> None:
             ),
             tmp_path / "unused.db",
         )
-
