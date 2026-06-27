@@ -49,6 +49,18 @@ Provider credentials are read from environment variables. Tencent TokenHub uses 
 
 Fleet issues are created from scan uploads and start as `open`. Transitions to `acknowledged`, `in_progress`, `resolved`, or `false_positive` are recorded with timestamps and optional technician notes. API endpoints for issue management require `X-API-Token` authentication and rate limiting. Responses never include token digests, queue paths, or credential material. Issues never auto-close; a human must explicitly resolve or dismiss each one.
 
+## Dashboard authentication
+
+Optional Streamlit dashboard authentication protects the UI when deployed beyond a single trusted workstation. It is **disabled by default** for local demo mode and enabled by setting `FIXMATE_DASHBOARD_AUTH_ENABLED=true`. Three roles govern UI capabilities:
+
+| Role | Dashboard access | Issue workflow actions | Settings |
+|------|-----------------|-----------------------|----------|
+| admin | full | acknowledge, in progress, resolve, false positive | full |
+| technician | dashboard only | acknowledge, in progress, resolve, false positive | none |
+| viewer | read-only | none | none |
+
+Credentials are read only from environment variables (`FIXMATE_DASHBOARD_{ROLE}_USERNAME` / `FIXMATE_DASHBOARD_{ROLE}_PASSWORD`). Passwords are hashed with PBKDF2-HMAC-SHA256 and verified using constant-time comparison. Passwords are never logged, displayed, persisted in SQLite, or returned in API responses. When auth is enabled but no credentials are configured, the dashboard shows a safe error and blocks access until valid credentials are provided.
+
 ## Reports
 
 Reports are built from read-only evidence and redacted again before export. Filenames come from enums and UTC timestamps. The API accepts no output path. CSV, JSON, HTML, and PDF bytes are generated in memory and are not stored by default.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from src.dashboard_auth import is_auth_enabled, load_dashboard_auth
 from src.database import DEFAULT_DB_PATH
 from src.fleet import FleetStore
 from src.fleet_status import ISSUE_STATUSES, filter_devices, fleet_summary
@@ -19,12 +20,48 @@ STATUS_COLORS = {
 
 st.set_page_config(page_title="Device Fleet | FixMate AI", page_icon="🖥️", layout="wide")
 
+_auth_config = load_dashboard_auth()
+
+if "dashboard_user" not in st.session_state:
+    st.session_state.dashboard_user = None
+
+if _auth_config.enabled and st.session_state.dashboard_user is None:
+    st.title("🖥️ Device Fleet")
+    st.caption("Dashboard authentication is enabled")
+    with st.form("fleet_login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Log in")
+        if submitted:
+            from src.dashboard_auth import authenticate
+            user = authenticate(_auth_config, username, password)
+            if user is not None:
+                st.session_state.dashboard_user = user
+                st.rerun()
+            else:
+                st.error("Invalid username or password.")
+    st.stop()
+
+_dashboard_user = st.session_state.dashboard_user
+_can_workflow = _dashboard_user is not None and _dashboard_user.can("issue_workflow")
+
 store = FleetStore(DEFAULT_DB_PATH)
 devices = store.list_devices()
 summary = fleet_summary(devices)
 
 st.title("🖥️ Device Fleet")
 st.caption("Read-only status from registered FixMate AI endpoint agents")
+
+if _dashboard_user is not None:
+    with st.sidebar:
+        st.write(f"**Role:** {_dashboard_user.role.title()}")
+        st.write(f"**User:** {_dashboard_user.username}")
+        if st.button("Log out", key="fleet_logout"):
+            st.session_state.dashboard_user = None
+            st.rerun()
+elif _auth_config.enabled:
+    st.info(_auth_config.status_message)
+
 st.info(
     "Fleet status reflects uploaded heartbeats and scan batches. FixMate AI does not "
     "run repairs, background services, notifications, or remote commands. Scheduled "
@@ -164,25 +201,28 @@ if fleet_issues:
             if issue.get("technician_note"):
                 st.info(f"Note: {issue['technician_note']}")
             action_cols = st.columns(5)
-            if issue["status"] == "open":
-                if action_cols[0].button("Acknowledge", key=f"ack-{issue['id']}"):
-                    store.update_fleet_issue(issue["id"], "acknowledged")
-                    st.rerun()
-            if issue["status"] in ("acknowledged", "open"):
-                if action_cols[1].button("In Progress", key=f"prog-{issue['id']}"):
-                    store.update_fleet_issue(issue["id"], "in_progress")
-                    st.rerun()
-            if issue["status"] in ("open", "acknowledged", "in_progress"):
-                note_key = f"note-{issue['id']}"
-                note_val = st.text_input(
-                    "Technician note", key=note_key, max_chars=2000, label_visibility="collapsed", placeholder="Add note..."
-                )
-                if action_cols[2].button("Resolve", key=f"res-{issue['id']}"):
-                    store.update_fleet_issue(issue["id"], "resolved", note_val)
-                    st.rerun()
-                if action_cols[3].button("False Positive", key=f"fp-{issue['id']}"):
-                    store.update_fleet_issue(issue["id"], "false_positive", note_val)
-                    st.rerun()
+            if _can_workflow:
+                if issue["status"] == "open":
+                    if action_cols[0].button("Acknowledge", key=f"ack-{issue['id']}"):
+                        store.update_fleet_issue(issue["id"], "acknowledged")
+                        st.rerun()
+                if issue["status"] in ("acknowledged", "open"):
+                    if action_cols[1].button("In Progress", key=f"prog-{issue['id']}"):
+                        store.update_fleet_issue(issue["id"], "in_progress")
+                        st.rerun()
+                if issue["status"] in ("open", "acknowledged", "in_progress"):
+                    note_key = f"note-{issue['id']}"
+                    note_val = st.text_input(
+                        "Technician note", key=note_key, max_chars=2000, label_visibility="collapsed", placeholder="Add note..."
+                    )
+                    if action_cols[2].button("Resolve", key=f"res-{issue['id']}"):
+                        store.update_fleet_issue(issue["id"], "resolved", note_val)
+                        st.rerun()
+                    if action_cols[3].button("False Positive", key=f"fp-{issue['id']}"):
+                        store.update_fleet_issue(issue["id"], "false_positive", note_val)
+                        st.rerun()
+            else:
+                st.caption("Workflow actions require technician or admin role.")
 else:
     st.info("No issues match the selected filter for this device.")
 

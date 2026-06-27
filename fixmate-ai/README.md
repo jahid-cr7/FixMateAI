@@ -50,6 +50,7 @@ The project is deliberately **read-only**. It does not require administrator/roo
 | 11C-1 | Fleet-aware diagnostic reports for summaries, single devices, offline devices, and high-risk devices |
 | 12A | Runtime provider selector in Troubleshooting Assistant; Tencent TokenHub GLM integration cleanup |
 | 12B | Fleet alert acknowledgement workflow with status tracking, technician notes, and API endpoints |
+| 12C | Optional dashboard login with role-based access (admin, technician, viewer) |
 
 ## Screenshots
 
@@ -308,6 +309,28 @@ TENCENT_TOKENHUB_MODEL=glm-5.1
 ```
 
 Do not place real keys in source code, screenshots, reports, issues, or commits. The provider receives only redacted questions and minimized evidence after user consent; screenshots and raw OCR text are never sent.
+
+## Optional dashboard authentication
+
+Dashboard authentication is **disabled by default** for local demo mode. Enable it to add a login screen and role-based access:
+
+```bash
+FIXMATE_DASHBOARD_AUTH_ENABLED=true
+FIXMATE_DASHBOARD_ADMIN_USERNAME=admin
+FIXMATE_DASHBOARD_ADMIN_PASSWORD=change_me
+FIXMATE_DASHBOARD_TECHNICIAN_USERNAME=technician
+FIXMATE_DASHBOARD_TECHNICIAN_PASSWORD=change_me
+FIXMATE_DASHBOARD_VIEWER_USERNAME=viewer
+FIXMATE_DASHBOARD_VIEWER_PASSWORD=change_me
+```
+
+| Role | Dashboard | Issue workflow | Settings |
+|------|-----------|---------------|----------|
+| admin | full access | all actions | full |
+| technician | dashboard only | all actions | none |
+| viewer | read-only | none | none |
+
+Passwords are hashed with PBKDF2-HMAC-SHA256 and never stored in SQLite, logs, reports, or API responses. When auth is enabled but no credentials are configured, the dashboard displays a safe error instead of granting access.
 
 ## Diagnostic reports
 

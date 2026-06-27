@@ -9,6 +9,7 @@ import plotly.express as px
 import streamlit as st
 
 from src.collector import collect_system_metrics
+from src.dashboard_auth import DashboardUser, authenticate, is_auth_enabled, load_dashboard_auth
 from src.database import (
     get_network_history,
     get_scan_history,
@@ -295,6 +296,37 @@ def _render_network_diagnostics() -> None:
 
 st.set_page_config(page_title="FixMate AI", page_icon="🛠️", layout="wide")
 initialize_database()
+
+_auth_config = load_dashboard_auth()
+
+if "dashboard_user" not in st.session_state:
+    st.session_state.dashboard_user = None
+
+if _auth_config.enabled and st.session_state.dashboard_user is None:
+    st.title("🛠️ FixMate AI")
+    st.caption("Dashboard authentication is enabled")
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Log in")
+        if submitted:
+            user = authenticate(_auth_config, username, password)
+            if user is not None:
+                st.session_state.dashboard_user = user
+                st.rerun()
+            else:
+                st.error("Invalid username or password.")
+    st.stop()
+
+_dashboard_user: DashboardUser | None = st.session_state.dashboard_user
+
+if _dashboard_user is not None:
+    with st.sidebar:
+        st.write(f"**Role:** {_dashboard_user.role.title()}")
+        st.write(f"**User:** {_dashboard_user.username}")
+        if st.button("Log out"):
+            st.session_state.dashboard_user = None
+            st.rerun()
 
 st.title("🛠️ FixMate AI")
 st.caption("Read-only system and network health checks for Windows and Ubuntu")

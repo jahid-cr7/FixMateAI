@@ -97,6 +97,7 @@ docker compose up
 - Scheduled agent mode must support bounded intervals, `--max-iterations` for tests/demos, heartbeat-only cycles, clean `Ctrl+C`, and no real waiting in automated tests.
 - Fleet issues detected from scan uploads start as `open` and transition through `acknowledged`, `in_progress`, `resolved`, or `false_positive`. Each transition records timestamps and an optional technician note. Issues never auto-close.
 - Fleet issue API endpoints require `X-API-Token` authentication and never return credential material.
+- Dashboard authentication is optional and disabled by default (`FIXMATE_DASHBOARD_AUTH_ENABLED=false`). When enabled, three roles govern access: `admin` (full), `technician` (issue workflow), `viewer` (read-only). Credentials come from `FIXMATE_DASHBOARD_{ROLE}_USERNAME` and `FIXMATE_DASHBOARD_{ROLE}_PASSWORD` environment variables only. Passwords are hashed with PBKDF2-HMAC-SHA256 and never stored in SQLite, logs, session state, reports, or API responses.
 
 ## Before submitting changes
 

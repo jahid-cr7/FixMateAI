@@ -38,6 +38,14 @@ Formal credential rotation and optional service-manager instructions remain cand
 - Authenticated API endpoints support programmatic issue management.
 - Reports include open, acknowledged, and in-progress issue counts.
 
+## Phase 12C — Dashboard Login and Role-Based Access — complete
+
+- Optional Streamlit dashboard authentication disabled by default for local demo.
+- Three roles: admin (full access), technician (issue workflow), viewer (read-only).
+- Credentials read from environment variables only; passwords hashed with PBKDF2-HMAC-SHA256.
+- Viewer role sees fleet issues but cannot perform workflow actions.
+- No passwords stored in SQLite, logs, reports, or API responses.
+
 ## Near-term
 
 - Add a first-class Streamlit database selector for marked synthetic demo databases.

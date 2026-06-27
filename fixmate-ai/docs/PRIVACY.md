@@ -46,6 +46,10 @@ Deterministic mode sends nothing externally. Cloud AI enhancement, including Ten
 
 External providers may have independent retention, training, location, and billing policies. Local Ollama-compatible mode avoids cloud transmission but requires a separately managed local model. Tencent TokenHub configuration is read only from `TENCENT_TOKENHUB_*` environment variables, and keys are never stored by FixMate AI.
 
+## Dashboard authentication
+
+When dashboard authentication is enabled (`FIXMATE_DASHBOARD_AUTH_ENABLED=true`), usernames and role assignments are stored in Streamlit session state only. Passwords are never stored in SQLite, logs, reports, or session state. Authentication credentials are read exclusively from environment variables and verified against salted PBKDF2-HMAC-SHA256 hashes kept in server memory. No passwords are transmitted to external providers.
+
 ## Demo data
 
 The portfolio generator creates only marked synthetic data. `.invalid` hostnames are reserved for examples and do not represent real systems. Generated databases are ignored by Git and should be deleted when no longer required.

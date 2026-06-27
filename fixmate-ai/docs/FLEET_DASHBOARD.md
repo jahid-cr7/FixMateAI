@@ -51,3 +51,19 @@ POST endpoints accept an optional JSON body with `technician_note` (max 2000 cha
 Fleet-aware reports include open, acknowledged, and in-progress issue counts where relevant. Issue status and technician notes appear in single-device reports when the `fleet` section is selected.
 
 Fleet-aware reports are available from the **Reports** page and the reports API. Supported scopes are fleet summary, single device, offline devices, and high-risk devices. Reports include only privacy-safe read models: display names, OS/platform, agent version, first/last seen timestamps, status, health score, severity, issue counts, recent heartbeats, and recent scan batches. They never include raw device tokens, token hashes, queue file paths, or endpoint repair commands.
+
+## Dashboard Authentication
+
+Optional role-based dashboard authentication protects the Streamlit UI when enabled:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `FIXMATE_DASHBOARD_AUTH_ENABLED` | `false` | Enable or disable login |
+| `FIXMATE_DASHBOARD_ADMIN_USERNAME` | `admin` | Admin username |
+| `FIXMATE_DASHBOARD_ADMIN_PASSWORD` | — | Admin password (must be changed from default) |
+| `FIXMATE_DASHBOARD_TECHNICIAN_USERNAME` | `technician` | Technician username |
+| `FIXMATE_DASHBOARD_TECHNICIAN_PASSWORD` | — | Technician password |
+| `FIXMATE_DASHBOARD_VIEWER_USERNAME` | `viewer` | Viewer username |
+| `FIXMATE_DASHBOARD_VIEWER_PASSWORD` | — | Viewer password |
+
+When disabled (default), the dashboard runs in open demo mode suitable for local portfolios. When enabled, a login form renders before any dashboard content. Viewers see read-only fleet data; technicians and admins can perform issue workflow actions (acknowledge, resolve, etc.). Passwords are hashed in server memory and never stored in SQLite, logs, or reports.
