@@ -85,6 +85,7 @@ docker compose up
 - Keep README, architecture, privacy, security, demo, roadmap, and interview claims aligned with implemented behavior.
 - Never describe FixMate AI as autonomous or claim that it executed a repair.
 - `FIXMATE_DB_PATH` is the shared Streamlit/FastAPI startup override; leave it unset for the normal database.
+- `FIXMATE_DATABASE_URL` selects the backend: unset or `sqlite` → SQLite; `postgresql` or `postgres` → PostgreSQL. Never log or return the full URL when it contains credentials.
 - Keep `src.__version__`, FastAPI metadata, README, changelog, and release tags aligned.
 - Public screenshots require synthetic data and the complete `docs/SCREENSHOTS.md` privacy review.
 - Community templates must never request private diagnostics, real screenshots, databases, logs, or secrets.
@@ -112,7 +113,7 @@ docker compose up
 9. Confirm all POST routes reject absent/invalid API tokens and no credential is tracked.
 10. Validate the Reports page, both `/api/v1/reports` endpoints, and all four export formats.
 11. Confirm no generated CSV, JSON, HTML, PDF, report directory, or private evidence is tracked.
-12. Run `docker compose config`; when Docker is available, also build and health-check both services.
+12. Run `docker compose config` and `docker compose -f docker-compose.prod.yml config`; when Docker is available, also build and health-check both services.
 13. Confirm native commands still bind FastAPI to `127.0.0.1` by default.
 14. Run demo-generator safety tests and confirm generated demo databases remain ignored.
 15. Verify every local README link and synthetic asset exists before publishing.

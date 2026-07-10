@@ -25,7 +25,7 @@ def get_data_service(
     settings: Annotated[ApiSettings, Depends(get_settings)],
 ) -> DataService:
     """Create a request-scoped read service for the configured database."""
-    return DataService(settings.database_path)
+    return DataService(settings.database_path, settings.database_url)
 
 
 def get_diagnostic_service(
@@ -33,28 +33,28 @@ def get_diagnostic_service(
     data_service: Annotated[DataService, Depends(get_data_service)],
 ) -> DiagnosticService:
     """Create a request-scoped diagnostic orchestration service."""
-    return DiagnosticService(settings.database_path, data_service)
+    return DiagnosticService(settings.database_path, data_service, settings.database_url)
 
 
 def get_assistant_service(
     settings: Annotated[ApiSettings, Depends(get_settings)],
 ) -> AssistantService:
     """Create a request-scoped assistant service."""
-    return AssistantService(settings.database_path)
+    return AssistantService(settings.database_path, settings.database_url)
 
 
 def get_report_service(
     settings: Annotated[ApiSettings, Depends(get_settings)],
 ) -> ReportService:
     """Create a request-scoped in-memory report service."""
-    return ReportService(settings.database_path, settings.fleet_online_minutes)
+    return ReportService(settings.database_path, settings.fleet_online_minutes, settings.database_url)
 
 
 def get_device_service(
     settings: Annotated[ApiSettings, Depends(get_settings)],
 ) -> DeviceService:
     """Create a request-scoped fleet service for the configured database."""
-    return DeviceService(settings.database_path, settings.fleet_online_minutes)
+    return DeviceService(settings.database_path, settings.fleet_online_minutes, settings.database_url)
 
 
 def require_api_token(

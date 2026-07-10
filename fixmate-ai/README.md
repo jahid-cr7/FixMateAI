@@ -51,6 +51,7 @@ The project is deliberately **read-only**. It does not require administrator/roo
 | 12A | Runtime provider selector in Troubleshooting Assistant; Tencent TokenHub GLM integration cleanup |
 | 12B | Fleet alert acknowledgement workflow with status tracking, technician notes, and API endpoints |
 | 12C | Optional dashboard login with role-based access (admin, technician, viewer) |
+| 12D | Optional PostgreSQL support while keeping SQLite as the default local database |
 
 ## Screenshots
 
@@ -106,6 +107,7 @@ Collection, detection, persistence, assistant routing, provider integration, rep
 | Analytics | Pandas, Plotly | History tables and interactive charts |
 | Vision/OCR | Pillow, OpenCV, pytesseract | Validation, preprocessing, and optional local OCR |
 | Persistence | SQLite (`sqlite3`) | Local scans, issues, network, and screenshot metadata |
+| Persistence | PostgreSQL (optional) | Production deployment with `psycopg2-binary` |
 | Reports | ReportLab, PyPDF | In-memory PDF generation and validation |
 | Testing | pytest, FastAPI TestClient, Streamlit AppTest | Unit, integration, API, privacy, and UI validation |
 | Deployment | Docker, Docker Compose | Reproducible non-root local services |
@@ -142,6 +144,31 @@ python -m streamlit run app.py
 ```
 
 Open `http://127.0.0.1:8501`.
+
+## Database configuration
+
+SQLite is the default. No configuration is required for local development.
+
+To use a custom SQLite path:
+
+```bash
+FIXMATE_DB_PATH=/path/to/fixmate.db
+```
+
+To use PostgreSQL, install `psycopg2-binary` and set `FIXMATE_DATABASE_URL`:
+
+```bash
+pip install psycopg2-binary
+FIXMATE_DATABASE_URL=postgresql://fixmate_user:change_me@localhost:5432/fixmate
+```
+
+FixMate AI selects the backend automatically:
+
+- Missing or empty `FIXMATE_DATABASE_URL` → SQLite default
+- `FIXMATE_DATABASE_URL` starting with `sqlite` → SQLite
+- `FIXMATE_DATABASE_URL` starting with `postgresql` or `postgres` → PostgreSQL
+
+The full URL is never logged or returned in responses when it contains credentials.
 
 ## Optional local Tesseract OCR
 
@@ -398,7 +425,7 @@ Read [SECURITY.md](docs/SECURITY.md) and [PRIVACY.md](docs/PRIVACY.md) before ad
 
 - First-class UI selection for marked synthetic demo databases
 - Accessibility and responsive-layout improvements
-- Optional PostgreSQL and shared deployment rate limiting
+- Shared deployment rate limiting
 - Stronger team authentication, TLS deployment guidance, and audit events
 - Broader knowledge-base provenance and OCR language configuration
 - Docker build validation and coverage reporting in CI
@@ -453,7 +480,8 @@ fixmate-ai/
 ├── tests/                         # Offline-safe unit and integration tests
 ├── docs/                          # Architecture, security, demo, interview guides
 ├── Dockerfile
-└── docker-compose.yml
+├── docker-compose.yml
+└── docker-compose.prod.yml
 ```
 
 ## Documentation

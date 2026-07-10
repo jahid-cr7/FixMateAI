@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.database import connect
+from src.database import _fmt_pct, connect
 from src.privacy import redact_sensitive_text
 
 
@@ -47,13 +47,17 @@ def _json_list(value: str | None) -> list[Any]:
 class DataService:
     """Database-backed read service injected into API route handlers."""
 
-    def __init__(self, database_path: Path) -> None:
+    def __init__(self, database_path: Path, database_url: str | None = None) -> None:
         self.database_path = database_path
+        self.database_url = database_url
+
+    def _connect(self):
+        return connect(self.database_path, self.database_url)
 
     def database_available(self) -> bool:
         """Return whether the configured database can be opened and queried."""
         try:
-            with connect(self.database_path) as connection:
+            with self._connect() as connection:
                 connection.execute("SELECT 1").fetchone()
             return True
         except Exception:
@@ -61,7 +65,9 @@ class DataService:
 
     def latest_system(self) -> dict[str, Any] | None:
         """Return latest scan and attached issues."""
-        with connect(self.database_path) as connection:
+        with self._connect() as connection:
+            dialect = connection.dialect
+            fmt = _fmt_pct(dialect, "i.value")
             row = connection.execute("SELECT * FROM scans ORDER BY id DESC LIMIT 1").fetchone()
             if row is None:
                 return None
@@ -87,7 +93,7 @@ class DataService:
                     "id": f"system:{issue['id']}",
                     "code": issue["code"],
                     "severity": issue["severity"],
-                    "evidence": f"{issue['metric']}: {issue['value']:.1f}%",
+                    "evidence": f"{issue['metric']}: {_fmt_pct(dialect, str(issue['value']))}",
                     "explanation": issue["explanation"],
                     "recommendation": issue["recommendation"],
                     "detected_at": to_utc(scan["collected_at"]),
@@ -108,14 +114,14 @@ class DataService:
         conditions: list[str] = []
         parameters: list[Any] = []
         if date_from:
-            conditions.append("datetime(collected_at) >= datetime(?)")
+            conditions.append("collected_at >= ?")
             parameters.append(date_from.astimezone(timezone.utc).isoformat())
         if date_to:
-            conditions.append("datetime(collected_at) <= datetime(?)")
+            conditions.append("collected_at <= ?")
             parameters.append(date_to.astimezone(timezone.utc).isoformat())
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         offset = (page - 1) * page_size
-        with connect(self.database_path) as connection:
+        with self._connect() as connection:
             total = connection.execute(
                 f"SELECT COUNT(*) FROM scans {where}", parameters
             ).fetchone()[0]
@@ -134,7 +140,7 @@ class DataService:
 
     def latest_network(self) -> dict[str, Any] | None:
         """Return latest network result without target host or interface names."""
-        with connect(self.database_path) as connection:
+        with self._connect() as connection:
             row = connection.execute(
                 "SELECT * FROM network_diagnostics ORDER BY id DESC LIMIT 1"
             ).fetchone()
@@ -183,14 +189,14 @@ class DataService:
         conditions: list[str] = []
         parameters: list[Any] = []
         if date_from:
-            conditions.append("datetime(collected_at) >= datetime(?)")
+            conditions.append("collected_at >= ?")
             parameters.append(date_from.astimezone(timezone.utc).isoformat())
         if date_to:
-            conditions.append("datetime(collected_at) <= datetime(?)")
+            conditions.append("collected_at <= ?")
             parameters.append(date_to.astimezone(timezone.utc).isoformat())
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         offset = (page - 1) * page_size
-        with connect(self.database_path) as connection:
+        with self._connect() as connection:
             total = connection.execute(
                 f"SELECT COUNT(*) FROM network_diagnostics {where}", parameters
             ).fetchone()[0]
@@ -221,11 +227,13 @@ class DataService:
         date_to: datetime | None = None,
     ) -> dict[str, Any]:
         """Return unified filtered issue records."""
-        with connect(self.database_path) as connection:
+        with self._connect() as connection:
+            dialect = connection.dialect
+            fmt_pct = _fmt_pct(dialect, "i.value")
             system_rows = connection.execute(
-                """
+                f"""
                 SELECT 'system:' || i.id AS id, 'system' AS issue_type, i.code,
-                       i.severity, i.metric || ': ' || printf('%.1f%%', i.value) AS evidence,
+                       i.severity, i.metric || ': ' || {fmt_pct} AS evidence,
                        i.explanation, i.recommendation, s.collected_at AS detected_at
                 FROM issues i JOIN scans s ON s.id = i.scan_id
                 """
@@ -282,14 +290,14 @@ class DataService:
         conditions: list[str] = []
         parameters: list[Any] = []
         if date_from:
-            conditions.append("datetime(analyzed_at) >= datetime(?)")
+            conditions.append("analyzed_at >= ?")
             parameters.append(date_from.astimezone(timezone.utc).isoformat())
         if date_to:
-            conditions.append("datetime(analyzed_at) <= datetime(?)")
+            conditions.append("analyzed_at <= ?")
             parameters.append(date_to.astimezone(timezone.utc).isoformat())
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         offset = (page - 1) * page_size
-        with connect(self.database_path) as connection:
+        with self._connect() as connection:
             total = connection.execute(
                 f"SELECT COUNT(*) FROM screenshot_analyses {where}", parameters
             ).fetchone()[0]
@@ -305,4 +313,3 @@ class DataService:
         for item in items:
             item["analyzed_at"] = to_utc(item["analyzed_at"])
         return {"items": _redact(items), "page": page, "page_size": page_size, "total": total}
-

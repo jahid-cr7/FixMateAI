@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
-from src.database import DEFAULT_DB_PATH
+from src.database import DEFAULT_BACKEND, DEFAULT_DB_PATH
 
 ALLOWED_API_HOSTS = {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
 
@@ -41,6 +41,7 @@ class ApiSettings:
     """Validated API settings; secret values are never represented in status output."""
 
     database_path: Path = DEFAULT_DB_PATH
+    database_url: str | None = None
     api_token: str = ""
     allowed_origins: tuple[str, ...] = (
         "http://127.0.0.1:8501",
@@ -60,6 +61,7 @@ class ApiSettings:
     @classmethod
     def from_environment(cls) -> "ApiSettings":
         """Load configuration from environment variables without dotenv side effects."""
+        database_url = os.environ.get("FIXMATE_DATABASE_URL", "").strip() or None
         database = (
             os.environ.get("FIXMATE_DB_PATH", "").strip()
             or os.environ.get("FIXMATE_DATABASE_PATH", "").strip()
@@ -69,6 +71,7 @@ class ApiSettings:
             host = "127.0.0.1"
         return cls(
             database_path=Path(database) if database else DEFAULT_DB_PATH,
+            database_url=database_url,
             api_token=os.environ.get("FIXMATE_API_TOKEN", ""),
             allowed_origins=_allowed_origins(os.environ.get("FIXMATE_API_CORS_ORIGINS")),
             max_request_bytes=_positive_int(

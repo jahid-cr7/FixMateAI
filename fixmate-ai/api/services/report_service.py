@@ -15,9 +15,15 @@ from src.report_models import ReportOptions
 class ReportService:
     """Build and export reports without exposing database or filesystem access."""
 
-    def __init__(self, database_path: Path, fleet_online_minutes: int = 5) -> None:
+    def __init__(
+        self,
+        database_path: Path,
+        fleet_online_minutes: int = 5,
+        database_url: str | None = None,
+    ) -> None:
         self.database_path = database_path
         self.fleet_online_minutes = fleet_online_minutes
+        self.database_url = database_url
 
     def generate(self, request: GenerateReportRequest) -> dict[str, Any]:
         """Return privacy-safe report bytes encoded for the JSON API envelope."""
@@ -31,7 +37,7 @@ class ReportService:
             device_id=request.device_id,
             fleet_online_minutes=self.fleet_online_minutes,
         )
-        report = build_report(options, self.database_path)
+        report = build_report(options, self.database_path, self.database_url)
         exported = export_report(report, request.format)
         return {
             "report_type": report.report_type,

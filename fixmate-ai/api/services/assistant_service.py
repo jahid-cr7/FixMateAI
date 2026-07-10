@@ -13,8 +13,13 @@ from src.troubleshooting_assistant import answer_question
 class AssistantService:
     """Keep assistant orchestration outside HTTP route handlers."""
 
-    def __init__(self, database_path: Path) -> None:
+    def __init__(
+        self,
+        database_path: Path,
+        database_url: str | None = None,
+    ) -> None:
         self.database_path = database_path
+        self.database_url = database_url
 
     def query(
         self,
@@ -24,7 +29,11 @@ class AssistantService:
     ) -> dict[str, Any]:
         """Return deterministic truth plus optional bounded explanation metadata."""
         if not ai_enhanced:
-            answer = answer_question(question, database_path=self.database_path)
+            answer = answer_question(
+                question,
+                database_path=self.database_path,
+                database_url=self.database_url,
+            )
             return {
                 **answer,
                 "ai_generated": False,
@@ -38,6 +47,7 @@ class AssistantService:
             create_provider(),
             consent_external=external_consent,
             database_path=self.database_path,
+            database_url=self.database_url,
         )
         return {
             **hybrid["answer"],

@@ -12,7 +12,7 @@ from src.assistant_tools import (
     get_network_status,
     get_screenshot_analysis,
 )
-from src.database import DEFAULT_DB_PATH
+from src.database import DEFAULT_DATABASE_URL, DEFAULT_DB_PATH
 from src.fleet import FleetStore
 from src.fleet_status import fleet_summary
 from src.report_models import DiagnosticReport, REPORT_TITLES, ReportOptions, ReportType
@@ -82,8 +82,8 @@ def _device_summary(scan: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def _assistant_payload(database_path: Path, now: datetime) -> dict[str, Any]:
-    answer = answer_question("Summarize this computer's health.", database_path, now)
+def _assistant_payload(database_path: Path, now: datetime, database_url: str | None = None) -> dict[str, Any]:
+    answer = answer_question("Summarize this computer's health.", database_path, now, database_url=database_url)
     return {
         "direct_answer": answer["direct_answer"],
         "evidence": answer["evidence"],
@@ -153,8 +153,9 @@ def _build_fleet_report(
     options: ReportOptions,
     database_path: Path,
     now: datetime,
+    database_url: str | None = None,
 ) -> DiagnosticReport:
-    store = FleetStore(database_path)
+    store = FleetStore(database_path, database_url)
     online_minutes = max(1, options.fleet_online_minutes)
     devices = store.list_devices(online_minutes, now=now)
     recent_batches = [
@@ -250,6 +251,7 @@ def build_report(
     options: ReportOptions,
     database_path: Path = DEFAULT_DB_PATH,
     generated_at: datetime | None = None,
+    database_url: str | None = DEFAULT_DATABASE_URL,
 ) -> DiagnosticReport:
     """Build a deterministic report without changing the database or filesystem."""
     if options.date_from and options.date_to:
@@ -265,20 +267,20 @@ def build_report(
         ReportType.OFFLINE_DEVICES,
         ReportType.HIGH_RISK_DEVICES,
     }:
-        return _build_fleet_report(options, database_path, now)
+        return _build_fleet_report(options, database_path, now, database_url=database_url)
 
-    scan = get_latest_health_scan(database_path)
+    scan = get_latest_health_scan(database_path, database_url)
     if scan and not _in_range(scan.get("collected_at"), options):
         scan = None
-    network = get_network_status(database_path)
+    network = get_network_status(database_path, database_url)
     if network and not _in_range(network.get("collected_at"), options):
         network = None
-    screenshot = get_screenshot_analysis(database_path)
+    screenshot = get_screenshot_analysis(database_path, database_url)
     if screenshot and not _in_range(screenshot.get("analyzed_at"), options):
         screenshot = None
     issues = [
         issue
-        for issue in get_issue_history(limit=500, database_path=database_path)
+        for issue in get_issue_history(limit=500, database_path=database_path, database_url=database_url)
         if _in_range(issue.get("timestamp"), options)
     ]
 
@@ -302,7 +304,7 @@ def build_report(
         issues = []
     included_issues = issues if _allows(options, "issues") else []
     assistant_payload = (
-        _assistant_payload(database_path, now)
+        _assistant_payload(database_path, now, database_url=database_url)
         if wanted_assistant and _allows(options, "assistant")
         else None
     )

@@ -65,6 +65,14 @@ Credentials are read only from environment variables (`FIXMATE_DASHBOARD_{ROLE}_
 
 Reports are built from read-only evidence and redacted again before export. Filenames come from enums and UTC timestamps. The API accepts no output path. CSV, JSON, HTML, and PDF bytes are generated in memory and are not stored by default.
 
+## Database URLs
+
+`FIXMATE_DATABASE_URL` may contain credentials. It is parsed and classified at startup, but the full URL is never logged, displayed, returned in API responses, or committed. When a URL contains a password, any diagnostic output uses `redact_database_url()` to replace the password with `***`.
+
+If `psycopg2` is missing when a PostgreSQL URL is configured, the resulting `ImportError` contains only the driver name and installation hint, never the database URL or password.
+
+Schema migration failures are also redacted: if `initialize_database()` raises an exception while a `FIXMATE_DATABASE_URL` is set, the error message replaces the raw URL and any bare password with `***` before propagation.
+
 ## Docker and CI
 
 - Containers run as an unprivileged `fixmate` user.

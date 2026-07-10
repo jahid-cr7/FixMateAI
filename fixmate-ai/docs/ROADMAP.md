@@ -56,9 +56,19 @@ Formal credential rotation and optional service-manager instructions remain cand
 - Add optional documented recipes for Windows Task Scheduler or systemd timers without changing the agent into a remote-control service.
 - Add a clearer provider-selection UX if more external providers are added.
 
+## Phase 12D — Safe database configuration foundation — complete
+
+- `FIXMATE_DATABASE_URL` selects the backend: unset or `sqlite` → SQLite; `postgresql` or `postgres` → PostgreSQL.
+- `src.db_backend.DatabaseConnection` provides a unified wrapper for SQLite and PostgreSQL connections with placeholder translation and cursor normalization.
+- Database URLs are redacted before logs, errors, or UI exposure; missing `psycopg2` raises a safe `ImportError` with no credentials.
+- SQLite remains the default; existing migrations and records are preserved.
+- Migration helpers (`_auto_inc`, `_table_exists`, `_record_migration`) are dialect-aware and avoid SQLite-only syntax when PostgreSQL is selected.
+- Migration errors are redacted to prevent credential leakage.
+- `docker-compose.prod.yml` includes an optional PostgreSQL service for team deployments.
+
 ## Medium-term
 
-- Add PostgreSQL as an optional deployment database while retaining SQLite for local use.
+- Complete PostgreSQL persistence parity while retaining SQLite for local use.
 - Add shared rate limiting and stronger authentication for team deployments.
 - Expand the curated Windows/Ubuntu knowledge base with source/version metadata.
 - Add multilingual OCR language configuration without cloud OCR.

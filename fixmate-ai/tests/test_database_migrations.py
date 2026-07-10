@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from typing import Any
+
+import pytest
 
 from src.database import (
     get_network_history,
     initialize_database,
     save_network_diagnostic,
+    _table_exists,
 )
 
 
@@ -79,8 +83,8 @@ def test_phase_2_migration_preserves_legacy_records(tmp_path: Path) -> None:
         migrations = connection.execute(
             "SELECT COUNT(*) FROM schema_migrations"
         ).fetchone()[0]
-        # Phase 11A and 12B each add one named, additive migration after Phases 1–3.
-        assert migrations == 5
+        # Phase 11A, 12B, and 12D each add one named, additive migration after Phases 1–3.
+        assert migrations == 6
 
 
 def test_network_diagnostic_round_trip(tmp_path: Path) -> None:
@@ -120,3 +124,141 @@ def test_network_diagnostic_round_trip(tmp_path: Path) -> None:
     assert history[0]["latency_ms"] == 25.0
     with sqlite3.connect(database_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM network_issues").fetchone()[0] == 1
+
+
+def test_postgresql_migration_sql_avoids_sqlite_only_syntax() -> None:
+    """Migrations for PostgreSQL must not use SQLite-only syntax."""
+    from src import database as db_module
+
+    captured_sql: list[str] = []
+
+    class FakeCursor:
+        def fetchone(self) -> Any:
+            return None
+
+        def fetchall(self) -> list[Any]:
+            return []
+
+    class FakeConnection:
+        dialect = "postgresql"
+
+        def execute(self, sql: str, params: Any = ()) -> FakeCursor:
+            captured_sql.append(sql)
+            return FakeCursor()
+
+        def __enter__(self) -> "FakeConnection":
+            return self
+
+        def __exit__(self, *args: Any) -> None:
+            pass
+
+    conn = FakeConnection()
+
+    db_module._apply_phase_2_migration(conn, "postgresql")
+    db_module._apply_phase_3_migration(conn, "postgresql")
+    db_module._apply_phase_11a_migration(conn, "postgresql")
+    db_module._apply_phase_12b_migration(conn, "postgresql")
+    db_module._apply_phase_12d_migration(conn, "postgresql")
+
+    all_sql = " ".join(captured_sql).upper()
+    assert "AUTOINCREMENT" not in all_sql
+    assert "PRAGMA" not in all_sql
+    assert "SQLITE_" not in all_sql
+    assert "BIGSERIAL" in all_sql
+
+
+def test_sqlite_migration_uses_autoincrement() -> None:
+    """SQLite migrations use INTEGER PRIMARY KEY AUTOINCREMENT."""
+    from src import database as db_module
+
+    captured_sql: list[str] = []
+
+    class FakeCursor:
+        def fetchone(self) -> Any:
+            return None
+
+        def fetchall(self) -> list[Any]:
+            return []
+
+    class FakeConnection:
+        dialect = "sqlite"
+
+        def execute(self, sql: str, params: Any = ()) -> FakeCursor:
+            captured_sql.append(sql)
+            return FakeCursor()
+
+        def __enter__(self) -> "FakeConnection":
+            return self
+
+        def __exit__(self, *args: Any) -> None:
+            pass
+
+    conn = FakeConnection()
+
+    db_module._apply_phase_2_migration(conn, "sqlite")
+    db_module._apply_phase_3_migration(conn, "sqlite")
+
+    all_sql = " ".join(captured_sql).upper()
+    assert "AUTOINCREMENT" in all_sql
+    assert "BIGSERIAL" not in all_sql
+
+
+def test_table_exists_sqlite(tmp_path: Path) -> None:
+    """_table_exists returns True for existing tables in SQLite."""
+    from src.database import connect_sqlite
+
+    db_path = tmp_path / "exists.db"
+    with connect_sqlite(db_path) as conn:
+        conn.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY)")
+        assert _table_exists(conn, "test_table") is True
+        assert _table_exists(conn, "nonexistent") is False
+
+
+def test_table_exists_postgresql() -> None:
+    """_table_exists queries information_schema in PostgreSQL."""
+    captured: list[tuple[str, tuple[Any, ...]]] = []
+
+    class FakeCursor:
+        def fetchone(self) -> tuple[Any, ...] | None:
+            return (1,)
+
+    class FakeConnection:
+        dialect = "postgresql"
+
+        def execute(self, sql: str, params: Any = ()) -> FakeCursor:
+            captured.append((sql, params))
+            return FakeCursor()
+
+    result = _table_exists(FakeConnection(), "scans")
+    assert result is True
+    assert "information_schema.tables" in captured[0][0]
+    assert captured[0][1] == ("scans",)
+
+
+def test_migration_error_redacts_database_url(monkeypatch, tmp_path: Path) -> None:
+    """Migration errors must not leak database credentials."""
+    secret_url = "postgresql://user:secret_password@localhost:5432/fixmate"
+
+    class FakeConnection:
+        dialect = "postgresql"
+
+        def execute(self, sql: str, params: Any = ()) -> Any:
+            raise RuntimeError(f"connection to {secret_url} failed")
+
+        def __enter__(self) -> "FakeConnection":
+            return self
+
+        def __exit__(self, *args: Any) -> None:
+            pass
+
+    from src import database as db_module
+
+    monkeypatch.setattr(
+        db_module, "connect", lambda path, url: FakeConnection()
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        db_module.initialize_database(tmp_path / "dummy.db", secret_url)
+
+    assert "secret_password" not in str(exc_info.value)
+    assert "***" in str(exc_info.value)

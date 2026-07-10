@@ -1,0 +1,120 @@
+name: fixmate-ai-prod
+
+# Production-like example with optional PostgreSQL.
+# Create a private .env file or export variables before starting.
+# Do not place real passwords in this file.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fixmate_user
+      POSTGRES_PASSWORD: change_me
+      POSTGRES_DB: fixmate
+    volumes:
+      - fixmate_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fixmate_user -d fixmate"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    restart: unless-stopped
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fixmate-ai:local
+    command:
+      - python
+      - -m
+      - streamlit
+      - run
+      - app.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
+      - --server.headless=true
+      - --browser.gatherUsageStats=false
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      FIXMATE_DATABASE_URL: postgresql://fixmate_user:change_me@postgres:5432/fixmate
+      FIXMATE_LLM_PROVIDER: ${FIXMATE_LLM_PROVIDER:-disabled}
+      FIXMATE_LLM_TIMEOUT_SECONDS: ${FIXMATE_LLM_TIMEOUT_SECONDS:-15}
+      FIXMATE_CLOUD_API_URL: ${FIXMATE_CLOUD_API_URL:-}
+      FIXMATE_CLOUD_MODEL: ${FIXMATE_CLOUD_MODEL:-}
+      FIXMATE_CLOUD_API_KEY: ${FIXMATE_CLOUD_API_KEY:-}
+      FIXMATE_OLLAMA_URL: ${FIXMATE_OLLAMA_URL:-http://127.0.0.1:11434/api/chat}
+      FIXMATE_OLLAMA_MODEL: ${FIXMATE_OLLAMA_MODEL:-}
+      TENCENT_TOKENHUB_API_KEY: ${TENCENT_TOKENHUB_API_KEY:-}
+      TENCENT_TOKENHUB_BASE_URL: ${TENCENT_TOKENHUB_BASE_URL:-}
+      TENCENT_TOKENHUB_MODEL: ${TENCENT_TOKENHUB_MODEL:-glm-5.1}
+      FIXMATE_DASHBOARD_AUTH_ENABLED: ${FIXMATE_DASHBOARD_AUTH_ENABLED:-false}
+      FIXMATE_DASHBOARD_ADMIN_USERNAME: ${FIXMATE_DASHBOARD_ADMIN_USERNAME:-}
+      FIXMATE_DASHBOARD_ADMIN_PASSWORD: ${FIXMATE_DASHBOARD_ADMIN_PASSWORD:-}
+      FIXMATE_DASHBOARD_TECHNICIAN_USERNAME: ${FIXMATE_DASHBOARD_TECHNICIAN_USERNAME:-}
+      FIXMATE_DASHBOARD_TECHNICIAN_PASSWORD: ${FIXMATE_DASHBOARD_TECHNICIAN_PASSWORD:-}
+      FIXMATE_DASHBOARD_VIEWER_USERNAME: ${FIXMATE_DASHBOARD_VIEWER_USERNAME:-}
+      FIXMATE_DASHBOARD_VIEWER_PASSWORD: ${FIXMATE_DASHBOARD_VIEWER_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  api:
+    image: fixmate-ai:local
+    command:
+      - python
+      - -m
+      - api.main
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      FIXMATE_DATABASE_URL: postgresql://fixmate_user:change_me@postgres:5432/fixmate
+      FIXMATE_API_HOST: 0.0.0.0
+      FIXMATE_API_PORT: 8000
+      FIXMATE_API_TOKEN: ${FIXMATE_API_TOKEN:-}
+      FIXMATE_DEVICE_TOKEN: ${FIXMATE_DEVICE_TOKEN:-}
+      FIXMATE_API_AGENT_RATE_LIMIT: ${FIXMATE_API_AGENT_RATE_LIMIT:-60}
+      FIXMATE_FLEET_ONLINE_MINUTES: ${FIXMATE_FLEET_ONLINE_MINUTES:-5}
+      FIXMATE_API_CORS_ORIGINS: http://127.0.0.1:8501,http://localhost:8501
+      FIXMATE_LLM_PROVIDER: ${FIXMATE_LLM_PROVIDER:-disabled}
+      FIXMATE_LLM_TIMEOUT_SECONDS: ${FIXMATE_LLM_TIMEOUT_SECONDS:-15}
+      FIXMATE_CLOUD_API_URL: ${FIXMATE_CLOUD_API_URL:-}
+      FIXMATE_CLOUD_MODEL: ${FIXMATE_CLOUD_MODEL:-}
+      FIXMATE_CLOUD_API_KEY: ${FIXMATE_CLOUD_API_KEY:-}
+      FIXMATE_OLLAMA_URL: ${FIXMATE_OLLAMA_URL:-http://127.0.0.1:11434/api/chat}
+      FIXMATE_OLLAMA_MODEL: ${FIXMATE_OLLAMA_MODEL:-}
+      TENCENT_TOKENHUB_API_KEY: ${TENCENT_TOKENHUB_API_KEY:-}
+      TENCENT_TOKENHUB_BASE_URL: ${TENCENT_TOKENHUB_BASE_URL:-}
+      TENCENT_TOKENHUB_MODEL: ${TENCENT_TOKENHUB_MODEL:-glm-5.1}
+    depends_on:
+      streamlit:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  fixmate_postgres_data:
+    name: fixmate_ai_postgres_data

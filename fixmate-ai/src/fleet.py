@@ -1,4 +1,4 @@
-"""Privacy-safe SQLite persistence and read models for managed devices."""
+"""Privacy-safe SQLite and optional PostgreSQL persistence for managed devices."""
 
 from __future__ import annotations
 
@@ -6,13 +6,18 @@ import hashlib
 import hmac
 import json
 import secrets
-import sqlite3
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.database import DEFAULT_DB_PATH, connect, initialize_database
+from src.database import (
+    DEFAULT_DATABASE_URL,
+    DEFAULT_DB_PATH,
+    _fmt_pct,
+    connect,
+    initialize_database,
+)
 from src.fleet_status import device_online_status, is_high_risk
 from src.privacy import redact_sensitive_text
 
@@ -49,9 +54,14 @@ def _redact(value: Any) -> Any:
 class FleetStore:
     """Fleet persistence boundary with no raw token or unrestricted payload access."""
 
-    def __init__(self, database_path: Path = DEFAULT_DB_PATH) -> None:
+    def __init__(
+        self,
+        database_path: Path = DEFAULT_DB_PATH,
+        database_url: str | None = DEFAULT_DATABASE_URL,
+    ) -> None:
         self.database_path = database_path
-        initialize_database(database_path)
+        self.database_url = database_url
+        initialize_database(database_path, database_url)
 
     def register_device(self, device: dict[str, Any], token: str) -> dict[str, Any]:
         """Create or refresh a device and store only a salted token digest."""
@@ -59,7 +69,7 @@ class FleetStore:
         salt = secrets.token_hex(16)
         digest = _token_digest(token, salt)
         safe = _redact(device)
-        with closing(connect(self.database_path)) as connection:
+        with closing(connect(self.database_path, self.database_url)) as connection:
             connection.execute(
                 """
                 INSERT INTO devices (
@@ -93,7 +103,7 @@ class FleetStore:
 
     def token_matches_device(self, device_id: str, token: str) -> bool:
         """Verify a supplied token against stored digest using constant time."""
-        with closing(connect(self.database_path)) as connection:
+        with closing(connect(self.database_path, self.database_url)) as connection:
             row = connection.execute(
                 "SELECT token_salt, token_hash FROM devices WHERE device_id = ?",
                 (device_id,),
@@ -106,7 +116,7 @@ class FleetStore:
     def record_heartbeat(self, heartbeat: dict[str, Any]) -> dict[str, Any]:
         """Store one heartbeat and update non-secret device recency fields."""
         safe = _redact(heartbeat)
-        with closing(connect(self.database_path)) as connection:
+        with closing(connect(self.database_path, self.database_url)) as connection:
             connection.execute(
                 """
                 INSERT INTO device_heartbeats
@@ -156,13 +166,15 @@ class FleetStore:
             "network": safe.get("network"),
             "issues": issues,
         }
-        with closing(connect(self.database_path)) as connection:
+        with closing(connect(self.database_path, self.database_url)) as connection:
+            dialect = connection.dialect
             cursor = connection.execute(
                 """
                 INSERT INTO device_scan_batches (
                     device_id, timestamp, payload_summary, health_score,
                     highest_severity, issue_count
                 ) VALUES (?, ?, ?, ?, ?, ?)
+                RETURNING id
                 """,
                 (
                     safe["device_id"],
@@ -173,12 +185,12 @@ class FleetStore:
                     len(issues),
                 ),
             )
+            batch_id = int(cursor.lastrowid)
             connection.execute(
                 "UPDATE devices SET last_seen_at = MAX(last_seen_at, ?) WHERE device_id = ?",
                 (safe["timestamp"], safe["device_id"]),
             )
             connection.commit()
-            batch_id = int(cursor.lastrowid)
         if issues:
             self.record_fleet_issues(safe["device_id"], batch_id, issues)
         return {
@@ -191,10 +203,16 @@ class FleetStore:
             "payload_summary": summary,
         }
 
-    def _device_rows(self) -> list[sqlite3.Row]:
-        with closing(connect(self.database_path)) as connection:
+    def _device_rows(self) -> list[Any]:
+        with closing(connect(self.database_path, self.database_url)) as connection:
+            dialect = connection.dialect
+            order_by = (
+                "LOWER(d.display_name), d.device_id"
+                if dialect == "postgresql"
+                else "d.display_name COLLATE NOCASE, d.device_id"
+            )
             return connection.execute(
-                """
+                f"""
                 SELECT d.device_id, d.display_name, d.operating_system, d.platform,
                        d.agent_version, d.first_seen_at, d.last_seen_at, d.notes,
                        (SELECT h.timestamp FROM device_heartbeats h
@@ -209,7 +227,7 @@ class FleetStore:
                        (SELECT b.issue_count FROM device_scan_batches b
                         WHERE b.device_id = d.device_id
                         ORDER BY b.id DESC LIMIT 1) AS issue_count
-                FROM devices d ORDER BY d.display_name COLLATE NOCASE, d.device_id
+                FROM devices d ORDER BY {order_by}
                 """
             ).fetchall()
 
@@ -248,7 +266,7 @@ class FleetStore:
 
     def latest_scan(self, device_id: str) -> dict[str, Any] | None:
         """Return the latest minimized scan batch for one device."""
-        with closing(connect(self.database_path)) as connection:
+        with closing(connect(self.database_path, self.database_url)) as connection:
             row = connection.execute(
                 """
                 SELECT id, device_id, timestamp, payload_summary, health_score,
@@ -265,7 +283,7 @@ class FleetStore:
     ) -> list[dict[str, Any]]:
         """Return recent heartbeat records for one device without token data."""
         safe_limit = max(1, min(int(limit), 100))
-        with closing(connect(self.database_path)) as connection:
+        with closing(connect(self.database_path, self.database_url)) as connection:
             rows = connection.execute(
                 """
                 SELECT device_id, timestamp, status, agent_version
@@ -279,7 +297,7 @@ class FleetStore:
     def recent_scan_batches(self, limit: int = 25) -> list[dict[str, Any]]:
         """Return recent minimized scan batches across the fleet."""
         safe_limit = max(1, min(int(limit), 100))
-        with closing(connect(self.database_path)) as connection:
+        with closing(connect(self.database_path, self.database_url)) as connection:
             rows = connection.execute(
                 """
                 SELECT b.id, b.device_id, d.display_name, b.timestamp,
@@ -298,7 +316,7 @@ class FleetStore:
     ) -> dict[str, Any]:
         """Return paginated minimized scan history newest first."""
         offset = (page - 1) * page_size
-        with closing(connect(self.database_path)) as connection:
+        with closing(connect(self.database_path, self.database_url)) as connection:
             total = int(
                 connection.execute(
                     "SELECT COUNT(*) FROM device_scan_batches WHERE device_id = ?",
@@ -322,7 +340,7 @@ class FleetStore:
         }
 
     @staticmethod
-    def _batch_dict(row: sqlite3.Row) -> dict[str, Any]:
+    def _batch_dict(row: Any) -> dict[str, Any]:
         item = dict(row)
         try:
             item["payload_summary"] = json.loads(item["payload_summary"])
@@ -336,7 +354,7 @@ class FleetStore:
         """Insert detected issues from a scan batch; each starts as open."""
         now = datetime.now(timezone.utc).isoformat()
         results: list[dict[str, Any]] = []
-        with closing(connect(self.database_path)) as connection:
+        with closing(connect(self.database_path, self.database_url)) as connection:
             for issue in issues:
                 safe = _redact(issue)
                 cursor = connection.execute(
@@ -346,6 +364,7 @@ class FleetStore:
                         evidence, explanation, recommendation,
                         status, technician_note, detected_at, updated_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', '', ?, ?)
+                    RETURNING id
                     """,
                     (
                         device_id,
@@ -399,7 +418,7 @@ class FleetStore:
             clauses.append("status = ?")
             params.append(status)
         where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
-        with closing(connect(self.database_path)) as connection:
+        with closing(connect(self.database_path, self.database_url)) as connection:
             rows = connection.execute(
                 f"""
                 SELECT id, device_id, batch_id, source, code, severity,
@@ -442,7 +461,7 @@ class FleetStore:
         if technician_note:
             params_list.append(technician_note)
         params_list.append(issue_id)
-        with closing(connect(self.database_path)) as connection:
+        with closing(connect(self.database_path, self.database_url)) as connection:
             cursor = connection.execute(
                 f"UPDATE fleet_issues SET {', '.join(sets)} WHERE id = ? AND status != ?",
                 (*params_list, status),

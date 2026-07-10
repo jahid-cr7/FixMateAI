@@ -17,7 +17,7 @@ from src.assistant_tools import (
     get_top_resource_processes,
     search_knowledge_base,
 )
-from src.database import DEFAULT_DB_PATH
+from src.database import DEFAULT_DATABASE_URL, DEFAULT_DB_PATH
 from src.privacy import redact_sensitive_text
 
 MAX_TOOL_CALLS = 4
@@ -45,6 +45,7 @@ class ToolContext:
     """Local context supplied by application code, never by the provider."""
 
     database_path: Path = DEFAULT_DB_PATH
+    database_url: str | None = DEFAULT_DATABASE_URL
     question: str = ""
 
 
@@ -65,7 +66,7 @@ def _redact_payload(value: Any) -> Any:
 
 
 def _latest_health(context: ToolContext) -> dict[str, Any] | None:
-    scan = get_latest_health_scan(context.database_path)
+    scan = get_latest_health_scan(context.database_path, context.database_url)
     if scan is None:
         return None
     return {
@@ -79,7 +80,7 @@ def _latest_health(context: ToolContext) -> dict[str, Any] | None:
 
 
 def _top_processes(context: ToolContext) -> dict[str, Any] | None:
-    result = get_top_resource_processes(database_path=context.database_path)
+    result = get_top_resource_processes(database_path=context.database_path, database_url=context.database_url)
     if result is None:
         return None
     return {
@@ -93,7 +94,7 @@ def _top_processes(context: ToolContext) -> dict[str, Any] | None:
 
 
 def _network(context: ToolContext) -> dict[str, Any] | None:
-    result = get_network_status(context.database_path)
+    result = get_network_status(context.database_path, context.database_url)
     if result is None:
         return None
     return {
@@ -116,7 +117,7 @@ def _network(context: ToolContext) -> dict[str, Any] | None:
 
 
 def _screenshot(context: ToolContext) -> dict[str, Any] | None:
-    result = get_screenshot_analysis(context.database_path)
+    result = get_screenshot_analysis(context.database_path, context.database_url)
     if result is None:
         return None
     return {
@@ -128,7 +129,7 @@ def _screenshot(context: ToolContext) -> dict[str, Any] | None:
 
 
 def _summary(context: ToolContext) -> dict[str, Any]:
-    summary = generate_health_summary(context.database_path)
+    summary = generate_health_summary(context.database_path, context.database_url)
     return {
         "latest_health": _latest_health(context),
         "network": _network(context),
@@ -147,13 +148,13 @@ def execute_safe_tool(name: str, context: ToolContext) -> Any:
     elif name == "get_top_resource_processes":
         result = _top_processes(context)
     elif name == "get_disk_status":
-        result = get_disk_status(context.database_path)
+        result = get_disk_status(context.database_path, context.database_url)
     elif name == "get_network_status":
         result = _network(context)
     elif name == "get_recent_issues":
-        result = get_recent_issues(limit=10, database_path=context.database_path)
+        result = get_recent_issues(limit=10, database_path=context.database_path, database_url=context.database_url)
     elif name == "get_issue_history":
-        result = get_issue_history(limit=20, database_path=context.database_path)
+        result = get_issue_history(limit=20, database_path=context.database_path, database_url=context.database_url)
     elif name == "get_screenshot_analysis":
         result = _screenshot(context)
     elif name == "search_knowledge_base":

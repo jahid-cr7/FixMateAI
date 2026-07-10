@@ -15,7 +15,7 @@ docker --version
 docker compose version
 ```
 
-## Start both services
+## Start both services (SQLite default)
 
 PowerShell:
 
@@ -36,6 +36,19 @@ docker compose up
 ```
 
 Streamlit is available at `http://127.0.0.1:8501`; FastAPI is available at `http://127.0.0.1:8000`, with Swagger at `/docs`.
+
+## Start with PostgreSQL (production example)
+
+Use `docker-compose.prod.yml` for a PostgreSQL-backed deployment:
+
+```bash
+export FIXMATE_API_TOKEN="replace-with-a-private-random-token"
+docker compose -f docker-compose.prod.yml config
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up
+```
+
+The PostgreSQL service is available internally at `postgres:5432`. Update `POSTGRES_PASSWORD` and `FIXMATE_DATABASE_URL` before using this in a real environment.
 
 Use detached mode with `docker compose up -d`. Inspect health and logs with:
 
@@ -67,7 +80,9 @@ FastAPI binds to `0.0.0.0` inside its container so Docker can forward traffic. C
 
 Compose reads `FIXMATE_API_TOKEN` from the invoking environment or an untracked local `.env` file. Never place a real token in `.env.example`, `docker-compose.yml`, or the Dockerfile.
 
-Optional cloud-provider variables can also be supplied from the environment, but `FIXMATE_LLM_PROVIDER` defaults to `disabled`. External consent checks and deterministic fallback remain unchanged. The image does not include Tesseract or Ollama, and neither is required for startup.
+`docker-compose.prod.yml` sets `FIXMATE_DATABASE_URL` to connect the app services to the included PostgreSQL container. Never commit a real password in this file.
+
+Optional cloud-provider variables can also be supplied from the environment, but `FIXMATE_LLM_PROVIDER` defaults to `disabled`. External consent checks and deterministic fallback remain unchanged. The image does not include Tesseract, Ollama, or PostgreSQL client libraries by default; install `psycopg2-binary` when using PostgreSQL.
 
 ## Privacy
 

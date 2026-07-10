@@ -4,7 +4,7 @@ FixMate AI processes diagnostic evidence locally by default. This document descr
 
 ## Managed endpoint payloads
 
-The endpoint agent can run once or in a foreground scheduled loop. It sends opaque identity metadata, heartbeats, summarized CPU/memory/disk/network values, health score, interface count, and redacted issue evidence. It omits hostname, process/interface names, addresses, screenshots, OCR text, browsing history, file contents, credentials, and raw tokens. Fleet records remain in the configured SQLite database.
+The endpoint agent can run once or in a foreground scheduled loop. It sends opaque identity metadata, heartbeats, summarized CPU/memory/disk/network values, health score, interface count, and redacted issue evidence. It omits hostname, process/interface names, addresses, screenshots, OCR text, browsing history, file contents, credentials, and raw tokens. Fleet records remain in the configured database (SQLite by default, or PostgreSQL when `FIXMATE_DATABASE_URL` is set).
 
 If uploads fail, retryable heartbeat, registration, and scan payloads may be stored temporarily in the local offline queue. Queue records contain redacted payloads and allowlisted endpoint names only; they do not include request headers or the raw device token. Queue records are not encrypted, so they should be treated as local diagnostic data.
 

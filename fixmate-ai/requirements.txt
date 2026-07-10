@@ -13,3 +13,5 @@ httpx>=0.27,<1
 openai>=1.68,<2
 reportlab>=4.2,<5
 pypdf>=5,<7
+# Optional PostgreSQL support; install only when FIXMATE_DATABASE_URL is used.
+# psycopg2-binary>=2.9,<3

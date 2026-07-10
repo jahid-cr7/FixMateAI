@@ -19,9 +19,15 @@ from api.services.errors import ServiceUnavailableError
 class DiagnosticService:
     """Run existing read-only diagnostics and persist results atomically."""
 
-    def __init__(self, database_path: Path, data_service: DataService) -> None:
+    def __init__(
+        self,
+        database_path: Path,
+        data_service: DataService,
+        database_url: str | None = None,
+    ) -> None:
         self.database_path = database_path
         self.data_service = data_service
+        self.database_url = database_url
 
     def run_system_scan(self) -> dict[str, Any]:
         """Collect, detect, score, save, and return a system scan."""
@@ -33,7 +39,7 @@ class DiagnosticService:
                 scan.get("disk_free_percent"),
             )
             score = calculate_health_score(issues)
-            save_scan(scan, issues, score, self.database_path)
+            save_scan(scan, issues, score, self.database_path, self.database_url)
             result = self.data_service.latest_system()
         except Exception as error:
             raise ServiceUnavailableError("System metric collection failed.") from error
@@ -57,7 +63,7 @@ class DiagnosticService:
                 latency_threshold_ms=latency_threshold_ms,
             )
             issues = detect_network_issues(diagnostic)
-            save_network_diagnostic(diagnostic, issues, self.database_path)
+            save_network_diagnostic(diagnostic, issues, self.database_path, self.database_url)
             result = self.data_service.latest_network()
         except Exception as error:
             raise ServiceUnavailableError("Network diagnostic failed.") from error
@@ -66,4 +72,3 @@ class DiagnosticService:
                 "Network diagnostic could not be retrieved after saving."
             )
         return result
-

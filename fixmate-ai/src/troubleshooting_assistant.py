@@ -18,7 +18,7 @@ from src.assistant_tools import (
     get_top_resource_processes,
     search_knowledge_base,
 )
-from src.database import DEFAULT_DB_PATH
+from src.database import DEFAULT_DATABASE_URL, DEFAULT_DB_PATH
 from src.knowledge_base import KnowledgeEntry, load_knowledge_base
 from src.privacy import redact_sensitive_text
 
@@ -158,17 +158,17 @@ def _highest_severity(issues: list[dict[str, Any]]) -> str | None:
     return max(severities, key=lambda value: SEVERITY_ORDER.get(value, 0), default=None)
 
 
-def _answer_computer_slow(database_path: Path, now: datetime | None) -> AssistantAnswer:
-    scan = get_latest_health_scan(database_path)
+def _answer_computer_slow(database_path: Path, database_url: str | None = None, now: datetime | None = None) -> AssistantAnswer:
+    scan = get_latest_health_scan(database_path, database_url=database_url)
     if scan is None:
         return _unavailable("computer_slow", "no system-health scan exists", "Guidance: run a new System Health scan while the slowdown is happening.", now)
 
     cpu = scan.get("cpu_percent")
     memory = scan.get("memory_percent")
-    history = get_health_scan_history(database_path=database_path)
+    history = get_health_scan_history(database_path=database_path, database_url=database_url)
     recent_resource_issues = [
         issue
-        for issue in get_issue_history(limit=30, database_path=database_path)
+        for issue in get_issue_history(limit=30, database_path=database_path, database_url=database_url)
         if issue.get("code") in {"CPU_HIGH", "MEMORY_HIGH"}
     ]
     current_high = []
@@ -217,8 +217,8 @@ def _answer_computer_slow(database_path: Path, now: datetime | None) -> Assistan
     )
 
 
-def _answer_memory(database_path: Path, now: datetime | None) -> AssistantAnswer:
-    result = get_top_resource_processes(database_path=database_path)
+def _answer_memory(database_path: Path, database_url: str | None = None, now: datetime | None = None) -> AssistantAnswer:
+    result = get_top_resource_processes(database_path=database_path, database_url=database_url)
     if result is None:
         return _unavailable("memory_usage", "no system-health scan exists", "Guidance: run a new System Health scan.", now)
     processes = result["processes"]
@@ -254,8 +254,8 @@ def _answer_memory(database_path: Path, now: datetime | None) -> AssistantAnswer
     )
 
 
-def _answer_disk(database_path: Path, now: datetime | None) -> AssistantAnswer:
-    disk = get_disk_status(database_path)
+def _answer_disk(database_path: Path, database_url: str | None = None, now: datetime | None = None) -> AssistantAnswer:
+    disk = get_disk_status(database_path, database_url=database_url)
     if disk is None:
         return _unavailable("disk_status", "no disk scan exists", "Guidance: run a new System Health scan.", now)
     free = disk.get("disk_free_percent")
@@ -290,9 +290,10 @@ def _answer_disk(database_path: Path, now: datetime | None) -> AssistantAnswer:
 def _answer_network(
     intent: str,
     database_path: Path,
-    now: datetime | None,
+    database_url: str | None = None,
+    now: datetime | None = None,
 ) -> AssistantAnswer:
-    network = get_network_status(database_path)
+    network = get_network_status(database_path, database_url=database_url)
     if network is None:
         return _unavailable(intent, "no network diagnostic exists", "Guidance: open Network Diagnostics and run a new diagnostic.", now)
     latency = network.get("latency_ms")
@@ -337,11 +338,11 @@ def _answer_network(
     )
 
 
-def _answer_today(database_path: Path, now: datetime | None) -> AssistantAnswer:
+def _answer_today(database_path: Path, database_url: str | None = None, now: datetime | None = None) -> AssistantAnswer:
     current = now or datetime.now().astimezone()
     start = current.replace(hour=0, minute=0, second=0, microsecond=0)
-    issues = get_recent_issues(since=start, database_path=database_path)
-    latest = generate_health_summary(database_path).get("latest_data_timestamp")
+    issues = get_recent_issues(since=start, database_path=database_path, database_url=database_url)
+    latest = generate_health_summary(database_path, database_url=database_url).get("latest_data_timestamp")
     if not issues:
         return _build_answer(
             "issues_today",
@@ -369,8 +370,8 @@ def _answer_today(database_path: Path, now: datetime | None) -> AssistantAnswer:
     )
 
 
-def _answer_screenshot(database_path: Path, now: datetime | None) -> AssistantAnswer:
-    analysis = get_screenshot_analysis(database_path)
+def _answer_screenshot(database_path: Path, database_url: str | None = None, now: datetime | None = None) -> AssistantAnswer:
+    analysis = get_screenshot_analysis(database_path, database_url=database_url)
     if analysis is None:
         return _unavailable("screenshot_error", "no screenshot analysis exists", "Guidance: use Error Screenshot Analyzer, review its OCR text, and run analysis.", now)
     issue_id = analysis.get("matched_issue_id")
@@ -413,8 +414,8 @@ def _answer_screenshot(database_path: Path, now: datetime | None) -> AssistantAn
     )
 
 
-def _answer_summary(database_path: Path, now: datetime | None) -> AssistantAnswer:
-    summary = generate_health_summary(database_path)
+def _answer_summary(database_path: Path, database_url: str | None = None, now: datetime | None = None) -> AssistantAnswer:
+    summary = generate_health_summary(database_path, database_url=database_url)
     scan = summary["latest_health"]
     if scan is None:
         return _unavailable("health_summary", "no system-health scan exists", "Guidance: run a new System Health scan, then optionally run Network Diagnostics.", now)
@@ -443,14 +444,14 @@ def _answer_summary(database_path: Path, now: datetime | None) -> AssistantAnswe
     )
 
 
-def _answer_priority(database_path: Path, now: datetime | None) -> AssistantAnswer:
-    issues = get_issue_history(limit=100, database_path=database_path)
+def _answer_priority(database_path: Path, database_url: str | None = None, now: datetime | None = None) -> AssistantAnswer:
+    issues = get_issue_history(limit=100, database_path=database_path, database_url=database_url)
     if not issues:
         return _build_answer(
             "fix_priority",
             "No stored system or network issue currently provides evidence for a repair priority.",
             [_evidence("Recorded issues", 0, "Issue history")],
-            generate_health_summary(database_path).get("latest_data_timestamp"),
+            generate_health_summary(database_path, database_url=database_url).get("latest_data_timestamp"),
             None,
             ["Guidance: run fresh System Health and Network Diagnostics checks before deciding what to fix."],
             False,
@@ -508,25 +509,26 @@ def answer_question(
     database_path: Path = DEFAULT_DB_PATH,
     now: datetime | None = None,
     knowledge_entries: list[KnowledgeEntry] | None = None,
+    database_url: str | None = DEFAULT_DATABASE_URL,
 ) -> AssistantAnswer:
     """Route an untrusted question and answer only from collected local evidence."""
     intent = detect_intent(question)
     if intent == "computer_slow":
-        return _answer_computer_slow(database_path, now)
+        return _answer_computer_slow(database_path=database_path, now=now, database_url=database_url)
     if intent == "memory_usage":
-        return _answer_memory(database_path, now)
+        return _answer_memory(database_path=database_path, now=now, database_url=database_url)
     if intent == "disk_status":
-        return _answer_disk(database_path, now)
+        return _answer_disk(database_path=database_path, now=now, database_url=database_url)
     if intent in {"internet_status", "network_slow"}:
-        return _answer_network(intent, database_path, now)
+        return _answer_network(intent=intent, database_path=database_path, now=now, database_url=database_url)
     if intent == "issues_today":
-        return _answer_today(database_path, now)
+        return _answer_today(database_path=database_path, now=now, database_url=database_url)
     if intent == "screenshot_error":
-        return _answer_screenshot(database_path, now)
+        return _answer_screenshot(database_path=database_path, now=now, database_url=database_url)
     if intent == "health_summary":
-        return _answer_summary(database_path, now)
+        return _answer_summary(database_path=database_path, now=now, database_url=database_url)
     if intent == "fix_priority":
-        return _answer_priority(database_path, now)
+        return _answer_priority(database_path=database_path, now=now, database_url=database_url)
 
     entries = knowledge_entries if knowledge_entries is not None else load_knowledge_base()
     knowledge_answer = _answer_knowledge(question, entries, now)

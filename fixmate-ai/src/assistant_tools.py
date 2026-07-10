@@ -3,26 +3,23 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from src.database import DEFAULT_DB_PATH
+from src.database import DEFAULT_DATABASE_URL, DEFAULT_DB_PATH, _fmt_pct, connect_readonly
 from src.error_matcher import rank_error_matches, reliable_matches
 from src.knowledge_base import KnowledgeEntry, load_knowledge_base
 from src.privacy import redact_sensitive_text
 
 
-def _connect_readonly(database_path: Path) -> sqlite3.Connection | None:
-    """Open an existing SQLite database in enforced read-only mode."""
-    if not database_path.exists():
-        return None
-    uri = f"{database_path.resolve().as_uri()}?mode=ro"
-    connection = sqlite3.connect(uri, uri=True)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA query_only = ON")
-    return connection
+def _connect_readonly(
+    database_path: Path = DEFAULT_DB_PATH,
+    database_url: str | None = DEFAULT_DATABASE_URL,
+) -> Any:
+    """Open an existing database in enforced read-only mode."""
+
+    return connect_readonly(database_path, database_url)
 
 
 def _parse_json_list(value: str | None) -> list[Any]:
@@ -46,14 +43,15 @@ def _parse_timestamp(value: str | None) -> datetime | None:
 
 def get_latest_health_scan(
     database_path: Path = DEFAULT_DB_PATH,
+    database_url: str | None = DEFAULT_DATABASE_URL,
 ) -> dict[str, Any] | None:
     """Return the latest system scan with decoded process data."""
-    connection = _connect_readonly(database_path)
+    connection = _connect_readonly(database_path, database_url)
     if connection is None:
         return None
     try:
         row = connection.execute("SELECT * FROM scans ORDER BY id DESC LIMIT 1").fetchone()
-    except sqlite3.OperationalError:
+    except Exception:
         row = None
     finally:
         connection.close()
@@ -67,9 +65,10 @@ def get_latest_health_scan(
 def get_health_scan_history(
     limit: int = 20,
     database_path: Path = DEFAULT_DB_PATH,
+    database_url: str | None = DEFAULT_DATABASE_URL,
 ) -> list[dict[str, Any]]:
     """Return recent system scans newest first."""
-    connection = _connect_readonly(database_path)
+    connection = _connect_readonly(database_path, database_url)
     if connection is None:
         return []
     try:
@@ -81,7 +80,7 @@ def get_health_scan_history(
             """,
             (max(1, limit),),
         ).fetchall()
-    except sqlite3.OperationalError:
+    except Exception:
         rows = []
     finally:
         connection.close()
@@ -91,9 +90,10 @@ def get_health_scan_history(
 def get_top_resource_processes(
     limit: int = 5,
     database_path: Path = DEFAULT_DB_PATH,
+    database_url: str | None = DEFAULT_DATABASE_URL,
 ) -> dict[str, Any] | None:
     """Return top memory processes from the latest recorded system scan."""
-    scan = get_latest_health_scan(database_path)
+    scan = get_latest_health_scan(database_path, database_url)
     if scan is None:
         return None
     processes = [item for item in scan.get("top_processes", []) if isinstance(item, dict)]
@@ -104,9 +104,12 @@ def get_top_resource_processes(
     }
 
 
-def get_disk_status(database_path: Path = DEFAULT_DB_PATH) -> dict[str, Any] | None:
+def get_disk_status(
+    database_path: Path = DEFAULT_DB_PATH,
+    database_url: str | None = DEFAULT_DATABASE_URL,
+) -> dict[str, Any] | None:
     """Return latest disk usage and free-space evidence."""
-    scan = get_latest_health_scan(database_path)
+    scan = get_latest_health_scan(database_path, database_url)
     if scan is None:
         return None
     return {
@@ -120,9 +123,12 @@ def get_disk_status(database_path: Path = DEFAULT_DB_PATH) -> dict[str, Any] | N
     }
 
 
-def get_network_status(database_path: Path = DEFAULT_DB_PATH) -> dict[str, Any] | None:
+def get_network_status(
+    database_path: Path = DEFAULT_DB_PATH,
+    database_url: str | None = DEFAULT_DATABASE_URL,
+) -> dict[str, Any] | None:
     """Return latest network status without exposing the configured target address."""
-    connection = _connect_readonly(database_path)
+    connection = _connect_readonly(database_path, database_url)
     if connection is None:
         return None
     try:
@@ -143,7 +149,7 @@ def get_network_status(database_path: Path = DEFAULT_DB_PATH) -> dict[str, Any] 
             """,
             (row["id"],),
         ).fetchall()
-    except sqlite3.OperationalError:
+    except Exception:
         return None
     finally:
         connection.close()
@@ -169,16 +175,19 @@ def get_recent_issues(
     since: datetime | None = None,
     limit: int = 50,
     database_path: Path = DEFAULT_DB_PATH,
+    database_url: str | None = DEFAULT_DATABASE_URL,
 ) -> list[dict[str, Any]]:
     """Return recent system and network issues newest first."""
-    connection = _connect_readonly(database_path)
+    connection = _connect_readonly(database_path, database_url)
     if connection is None:
         return []
     try:
+        dialect = connection.dialect
+        fmt_pct = _fmt_pct(dialect, "i.value")
         system_rows = connection.execute(
-            """
+            f"""
             SELECT s.collected_at AS timestamp, 'system' AS source, i.code,
-                   i.severity, i.metric || ': ' || printf('%.1f%%', i.value) AS evidence,
+                   i.severity, i.metric || ': ' || {fmt_pct} AS evidence,
                    i.explanation, i.recommendation
             FROM issues i JOIN scans s ON s.id = i.scan_id
             """
@@ -190,7 +199,7 @@ def get_recent_issues(
             FROM network_issues ni
             """
         ).fetchall()
-    except sqlite3.OperationalError:
+    except Exception:
         return []
     finally:
         connection.close()
@@ -222,16 +231,18 @@ def get_recent_issues(
 def get_issue_history(
     limit: int = 100,
     database_path: Path = DEFAULT_DB_PATH,
+    database_url: str | None = DEFAULT_DATABASE_URL,
 ) -> list[dict[str, Any]]:
     """Return combined historical issues without modifying stored records."""
-    return get_recent_issues(since=None, limit=limit, database_path=database_path)
+    return get_recent_issues(since=None, limit=limit, database_path=database_path, database_url=database_url)
 
 
 def get_screenshot_analysis(
     database_path: Path = DEFAULT_DB_PATH,
+    database_url: str | None = DEFAULT_DATABASE_URL,
 ) -> dict[str, Any] | None:
     """Return the latest redacted screenshot-analysis record."""
-    connection = _connect_readonly(database_path)
+    connection = _connect_readonly(database_path, database_url)
     if connection is None:
         return None
     try:
@@ -242,7 +253,7 @@ def get_screenshot_analysis(
             FROM screenshot_analyses ORDER BY id DESC LIMIT 1
             """
         ).fetchone()
-    except sqlite3.OperationalError:
+    except Exception:
         row = None
     finally:
         connection.close()
@@ -273,12 +284,15 @@ def search_knowledge_base(
     ]
 
 
-def generate_health_summary(database_path: Path = DEFAULT_DB_PATH) -> dict[str, Any]:
+def generate_health_summary(
+    database_path: Path = DEFAULT_DB_PATH,
+    database_url: str | None = DEFAULT_DATABASE_URL,
+) -> dict[str, Any]:
     """Collect a read-only snapshot for assistant summary and freshness views."""
-    latest_health = get_latest_health_scan(database_path)
-    network = get_network_status(database_path)
-    screenshot = get_screenshot_analysis(database_path)
-    issues = get_recent_issues(limit=20, database_path=database_path)
+    latest_health = get_latest_health_scan(database_path, database_url)
+    network = get_network_status(database_path, database_url)
+    screenshot = get_screenshot_analysis(database_path, database_url)
+    issues = get_recent_issues(limit=20, database_path=database_path, database_url=database_url)
     timestamps = [
         value
         for value in (

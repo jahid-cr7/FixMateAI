@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, TypedDict
 
-from src.database import DEFAULT_DB_PATH
+from src.database import DEFAULT_DATABASE_URL, DEFAULT_DB_PATH
 from src.llm.base import LLMMessage, LLMProvider, ProviderError
 from src.privacy import redact_sensitive_text
 from src.safe_agent_tools import (
@@ -185,9 +185,10 @@ def run_hybrid_assistant(
     consent_external: bool = False,
     database_path: Path = DEFAULT_DB_PATH,
     now: datetime | None = None,
+    database_url: str | None = DEFAULT_DATABASE_URL,
 ) -> HybridAssistantResult:
     """Run at most two provider calls and always preserve deterministic truth."""
-    deterministic = answer_question(question, database_path=database_path, now=now)
+    deterministic = answer_question(question, database_path=database_path, now=now, database_url=database_url)
     status = provider.status
     if not status.configured:
         return _fallback(deterministic, provider, status.message)
@@ -205,7 +206,7 @@ def run_hybrid_assistant(
         tool_names = validate_tool_requests(plan.get("tool_requests"))
         tool_results = execute_tool_requests(
             tool_names,
-            ToolContext(database_path=database_path, question=question),
+            ToolContext(database_path=database_path, question=question, database_url=database_url),
         )
         final_content = provider.complete(
             _final_messages(question, deterministic, tool_results)

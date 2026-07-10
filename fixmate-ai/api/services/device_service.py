@@ -18,8 +18,13 @@ from src.fleet_status import filter_devices
 class DeviceService:
     """Small service boundary over privacy-safe fleet persistence."""
 
-    def __init__(self, database_path: Path, online_minutes: int = 5) -> None:
-        self.store = FleetStore(database_path)
+    def __init__(
+        self,
+        database_path: Path,
+        online_minutes: int = 5,
+        database_url: str | None = None,
+    ) -> None:
+        self.store = FleetStore(database_path, database_url)
         self.online_minutes = online_minutes
 
     def register(

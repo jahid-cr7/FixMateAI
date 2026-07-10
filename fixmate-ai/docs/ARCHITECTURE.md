@@ -64,7 +64,7 @@ Screenshot files are processed in memory and are not stored. OCR text is redacte
 
 ## Streamlit and FastAPI
 
-Streamlit and FastAPI reuse the same service modules and SQLite schema. They are separate presentation surfaces rather than separate implementations.
+Streamlit and FastAPI reuse the same service modules and SQLite schema. They are separate presentation surfaces rather than separate implementations. Optional PostgreSQL is supported via `FIXMATE_DATABASE_URL` while keeping SQLite as the default.
 
 - Streamlit provides interactive system/network dashboards, screenshot analysis, troubleshooting chat, and report downloads.
 - FastAPI exposes versioned diagnostics, history, issues, screenshot metadata, assistant queries, and reports.
@@ -99,7 +99,9 @@ erDiagram
     }
 ```
 
-Migrations are additive and preserve Phase 1–3 records. Assistant conversations and generated reports have no database tables.
+Migrations are additive and preserve Phase 1–3 records. The same migration scripts run on both SQLite and PostgreSQL by using dialect-aware helpers (`BIGSERIAL` vs `AUTOINCREMENT`, placeholder translation, `information_schema` vs `sqlite_master` for table existence checks). Assistant conversations and generated reports have no database tables. Migration failures are redacted when a database URL is configured.
+
+`src.db_backend.DatabaseConnection` wraps both `sqlite3.Connection` and `psycopg2` connections, translating placeholders (`?` → `%s`) and normalizing `lastrowid`, `fetchone`, and `fetchall` so that persistence code does not need branching logic. PostgreSQL support is optional: `psycopg2-binary` is not required for local SQLite usage and is commented out in `requirements.txt`.
 
 Phase 11A adds `devices`, `device_heartbeats`, and `device_scan_batches`. Device rows store a per-device salt and PBKDF2 token digest, never the raw enrollment token. Batches contain only summarized metrics and redacted issue evidence.
 
@@ -157,3 +159,5 @@ flowchart LR
 ```
 
 Both services reuse one non-root Python 3.12 slim image. Container diagnostics describe container resources and networking, so native execution is required for actual host diagnostics.
+
+`docker-compose.yml` shares a SQLite volume. `docker-compose.prod.yml` adds a PostgreSQL service with a named volume for team deployments.
